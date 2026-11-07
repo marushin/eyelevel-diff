@@ -1,0 +1,378 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>Deconstruct motion</title>
+<style>
+  html, body { margin: 0; padding: 0; background: #fff; }
+  #stage { position: relative; width: 960px; height: 540px; overflow: hidden; background: #fff; color: #000;
+    font-family: "AppleMyungjo", "Noto Serif KR", serif; }
+  #lines { position: absolute; left: 0; top: 0; }
+  .frag { position: absolute; left: 0; top: 0; white-space: nowrap; line-height: 1; transform-origin: 50% 50%; }
+  .frag .pic { display: block; margin: 0 auto; width: 120px; height: 90px; }
+  .frag .lab { display: block; margin-top: 5px; font-size: 15px; text-align: center; }
+  #chrome { position: absolute; left: 100px; top: 16px; width: 760px; height: 444px; border: 1px solid #000; box-sizing: border-box; }
+  #chrome .bar { height: 32px; border-bottom: 1px solid #000; box-sizing: border-box; font-size: 14px; line-height: 31px; padding-left: 14px; }
+  .caption { position: absolute; left: 40px; top: 492px; font-size: 26px; line-height: 32px; white-space: nowrap; }
+  #rule { position: absolute; left: 40px; right: 40px; top: 476px; height: 1px; background: #000; }
+  .seg { position: absolute; top: 507px; width: 18px; height: 1px; background: #000; }
+  .note { position: absolute; font-size: 24px; white-space: nowrap; line-height: 1; }
+  #formula { left: 0; width: 960px; top: 408px; text-align: center; display: flex; justify-content: center; align-items: center; gap: 8px; font-size: 26px; }
+  .frac { display: inline-block; text-align: center; vertical-align: middle; }
+  .frac > span { display: block; line-height: 1.15; }
+  .frac > span:first-child { border-bottom: 1px solid #000; padding: 0 6px 2px; }
+  .frac > span:last-child { padding-top: 2px; }
+  i { font-style: italic; }
+  sub { font-size: .66em; line-height: 0; }
+  #count { margin-left: 40px; color: #ff0000; }
+  #pair { color: #ff0000; font-size: 26px; background: #fff; padding: 2px 6px; transform: translate(-50%,-50%); }
+  #query { color: #ff0000; font-size: 34px; transform: translate(-50%,-50%); }
+  #law { right: 40px; top: 16px; text-align: right; font-size: 22px; line-height: 30px; white-space: pre; }
+  #floor { color: #ff0000; font-size: 24px; }
+</style>
+</head>
+<body>
+<div id="stage">
+  <canvas id="lines" width="960" height="476"></canvas>
+  <div id="chrome"><div class="bar">https://example.com/cat</div></div>
+  <div id="frags"></div>
+  <div class="note" id="formula">
+    <span><i>w</i><sub><i>ij</i></sub></span><span>=</span>
+    <span class="frac"><span>1 + cos(<i>e</i><sub><i>i</i></sub>, <i>e</i><sub><i>j</i></sub>)</span><span>2</span></span>
+    <span id="count"><i>n</i>(<i>n</i>−1)/2 = 105쌍</span>
+  </div>
+  <div class="note" id="pair"></div>
+  <div class="note" id="query">고양이</div>
+  <div class="note" id="law">불투명도 = 0.14 + 0.86<i>t</i>
+크기 = 0.72 + <i>t</i>
+<i>t</i>: 정규화한 검색어 유사도</div>
+  <div class="note" id="floor">0.14</div>
+  <div id="rule"></div>
+  <div id="caps"></div>
+  <div id="segs"></div>
+</div>
+<script>
+const FONT = '"AppleMyungjo", "Noto Serif KR", serif';
+const DURATION = 17.8;
+window.MOTION_DURATION = DURATION;
+
+/* deterministic helpers */
+function hash(i) { const x = Math.sin(i * 127.1 + 311.7) * 43758.5453; return x - Math.floor(x); }
+const clamp = (v, a = 0, b = 1) => Math.min(b, Math.max(a, v));
+const lerp = (a, b, u) => a + (b - a) * u;
+const ease = u => { u = clamp(u); return u < .5 ? 4 * u * u * u : 1 - Math.pow(-2 * u + 2, 3) / 2; };
+const outCubic = u => 1 - Math.pow(1 - clamp(u), 3);
+const ramp = (t, a, b) => clamp((t - a) / (b - a));
+const win = (t, a, b, f = .25) => Math.min(ramp(t, a, a + f), 1 - ramp(t, b - f, b));
+
+const measureCtx = document.createElement('canvas').getContext('2d');
+function textW(text, px) { measureCtx.font = `${px}px ${FONT}`; return measureCtx.measureText(text).width; }
+
+/* The sample page. o = orbit state: t is the normalised search-term similarity. */
+const PAGE_PX = 16;
+const F = [
+  { id: 'A', text: '고양이의 하루', pagePx: 28, read: [185, 48],  clus: [150, 40],  orb: [480, 118], t: 1 },
+  { id: 'B', text: '고양이는 하루 대부분을 잠으로 보냅니다.', read: [185, 98],  clus: [205, 88],  orb: [480, 312], t: .72 },
+  { id: 'C', text: '새벽이면 사냥 놀이를 시작합니다.', read: [185, 148], clus: [175, 136], orb: [205, 232], t: .5 },
+  { id: 'E', text: '낮잠 자기 좋은 창가를 찾아 머뭅니다.', read: [185, 198], clus: [205, 184], orb: [742, 232], t: .55 },
+  { id: 'D', img: '#ff9e4d', text: '창가의 고양이', read: [185, 300], clus: [448, 110], orb: [215, 96],  t: .62 },
+  { id: 'F', text: '도시의 골목', pagePx: 20, read: [505, 48],  clus: [752, 40],  orb: [846, 128], t: .22 },
+  { id: 'G', text: '밤마다 불빛이 남습니다.', read: [505, 98],  clus: [772, 88],  orb: [800, 176], t: .14 },
+  { id: 'H', text: '오래된 지도는 사라진 길을 기억합니다.', read: [505, 148], clus: [716, 136], orb: [640, 404], t: .08 },
+  { id: 'I', img: '#0000ff', text: '밤의 골목', read: [505, 250], clus: [842, 232], orb: [868, 345], t: .16 },
+  { id: 'J', text: '썰물의 모래', pagePx: 20, read: [505, 350], clus: [120, 292], orb: [112, 350], t: .1 },
+  { id: 'K', text: '달이 바다를 끌어당깁니다.', read: [795, 60],  clus: [150, 340], orb: [195, 404], t: .06 },
+  { id: 'L', text: '파도는 밀려오고 물러납니다.', read: [795, 130], clus: [165, 388], orb: [410, 404], t: .03 },
+  { id: 'O', text: '이전 글', read: [795, 200], clus: [470, 330], orb: [62, 440],  t: .02 },
+  { id: 'N', text: '다음 글', read: [795, 270], clus: [560, 370], orb: [872, 432], t: .04 },
+  { id: 'M', text: '구독하기', read: [795, 340], clus: [440, 408], orb: [72, 288],  t: 0 },
+];
+const byId = Object.fromEntries(F.map(f => [f.id, f]));
+const OPACITY_EPS = .14;
+const opacityOf = t => OPACITY_EPS + (1 - OPACITY_EPS) * t;
+const scaleOf = t => .72 + t;
+
+/* phrases of B: each piece has its own similarity */
+const PIECES = [
+  { id: 'P1', text: '고양이는', orb: [262, 316], t: .95, off: 0 },
+  { id: 'P2', text: '하루 대부분을', orb: [486, 316], t: .42, off: 0 },
+  { id: 'P3', text: '잠으로 보냅니다.', orb: [706, 316], t: .24, off: 0 },
+];
+
+/* build DOM */
+const fragHost = document.getElementById('frags');
+function makeFrag(f) {
+  const el = document.createElement('div');
+  el.className = 'frag';
+  f.fs = f.text.length <= 14 ? 22 : 17;
+  if (f.img) {
+    el.innerHTML = `<span class="pic" style="background:${f.img}"></span><span class="lab">${f.text}</span>`;
+  } else {
+    el.textContent = f.text;
+    el.style.fontSize = f.fs + 'px';
+  }
+  fragHost.appendChild(el);
+  f.el = el;
+}
+F.forEach(makeFrag);
+PIECES.forEach(makeFrag);
+
+/* page layout: paragraphs flow inline, so the cut happens inside a running line */
+const LEFT = 130;
+function placeInline(y, ids) {
+  let x = LEFT;
+  const cuts = [];
+  ids.forEach((id, k) => {
+    const f = byId[id];
+    const w = textW(f.text, PAGE_PX);
+    f.page = [x + w / 2, y];
+    f.pageS = PAGE_PX / f.fs;
+    x += w;
+    if (k < ids.length - 1) { x += textW(' ', PAGE_PX); cuts.push([x - textW(' ', PAGE_PX) / 2, y]); }
+  });
+  return cuts;
+}
+function placeHead(id, y) {
+  const f = byId[id]; const w = textW(f.text, f.pagePx);
+  f.page = [LEFT + w / 2, y]; f.pageS = f.pagePx / f.fs;
+}
+placeHead('A', 84);
+const CUTS = [
+  ...placeInline(128, ['B', 'C']),
+  ...placeInline(156, ['E']),
+];
+placeHead('F', 214);
+CUTS.push(...placeInline(254, ['G', 'H']));
+placeHead('J', 310);
+CUTS.push(...placeInline(350, ['K', 'L']));
+function placeNav(id, x) { const f = byId[id]; const w = textW(f.text, 15); f.page = [x + w / 2, 416]; f.pageS = 15 / f.fs; }
+placeNav('O', LEFT); placeNav('N', LEFT + 72); placeNav('M', LEFT + 144);
+byId.D.page = [772, 122]; byId.D.pageS = 1;
+byId.I.page = [772, 270]; byId.I.pageS = 1;
+
+/* pieces, measured at both B sizes so that the swap with B is invisible */
+const B = byId.B;
+function pieceOffset(p, px) {
+  const before = B.text.slice(0, B.text.indexOf(p.text));
+  return textW(before, px) + textW(p.text, px) / 2 - textW(B.text, px) / 2;
+}
+PIECES.forEach(p => {
+  p.pageAt = [B.page[0] + pieceOffset(p, PAGE_PX), B.page[1]];
+  p.pageS = PAGE_PX / p.fs;
+  const bPx = B.fs * scaleOf(B.t);
+  p.orbAt = [B.orb[0] + pieceOffset(p, bPx), B.orb[1]];
+  p.orbS0 = bPx / p.fs;
+});
+
+/* edges drawn in the similarity layout */
+const EDGES = [
+  ['A','B',.9],['A','C',.5],['B','C',.7],['B','E',.86],['C','E',.4],['D','E',.95],['A','D',.7],['B','D',.55],
+  ['F','G',.8],['F','H',.45],['G','H',.5],['G','I',.9],['F','I',.75],['H','I',.35],
+  ['J','K',.7],['K','L',.9],['J','L',.6],
+  ['O','N',.95],['N','M',.5],['O','M',.4],
+  ['C','G',.1],
+];
+const ALL_PAIRS = [];
+F.forEach((a, i) => F.forEach((b, j) => { if (i < j) ALL_PAIRS.push([a, b, hash(i * 31 + j)]); }));
+
+/* captions */
+const CAPS = [
+  [-1, 1.5, '페이지에서 글과 이미지를 꺼냅니다'],
+  [1.5, 3.6, '의미 단위로 나눕니다'],
+  [3.6, 5.0, '조각마다 1024차원 벡터'],
+  [5.0, 7.7, '모든 쌍의 유사도를 잽니다'],
+  [7.7, 9.8, '같은 조각이 유사도로 다시 모입니다'],
+  [9.8, 12.1, '검색어와 가까울수록 진하고 크게'],
+  [12.1, 13.5, '가장 먼 조각도 사라지지 않습니다'],
+  [13.5, 16.5, '더 잘게 분해하면 구절로'],
+  [16.5, 17.5, '조립하면 원래 페이지로'],
+  [17.5, 99, '페이지에서 글과 이미지를 꺼냅니다'],
+];
+const capHost = document.getElementById('caps');
+CAPS.forEach(c => { const d = document.createElement('div'); d.className = 'caption'; d.textContent = c[2]; capHost.appendChild(d); c.el = d; });
+
+const SEG_T = [0, 1.5, 3.6, 5.0, 7.7, 9.8, 13.5];
+const segHost = document.getElementById('segs');
+const segs = SEG_T.map((_, i) => { const d = document.createElement('div'); d.className = 'seg'; d.style.left = (920 - (SEG_T.length - i) * 24 + 6) + 'px'; segHost.appendChild(d); return d; });
+
+const canvas = document.getElementById('lines');
+const ctx = canvas.getContext('2d');
+const chrome = document.getElementById('chrome');
+const elFormula = document.getElementById('formula');
+const elCount = document.getElementById('count');
+const elPair = document.getElementById('pair');
+const elQuery = document.getElementById('query');
+const elLaw = document.getElementById('law');
+const elFloor = document.getElementById('floor');
+
+const PAIRS = [
+  { a: 'B', b: 'E', v: '0.86', t0: 5.05, t1: 5.95 },
+  { a: 'B', b: 'O', v: '0.55', t0: 5.95, t1: 6.8 },
+];
+
+function fragState(f, i, t) {
+  const d = f.id === 'B' ? 0 : hash(i + 3) * .32;
+  const curve = (hash(i + 9) - .5) * 70;
+  let x = f.page[0], y = f.page[1], s = f.pageS, o = 1;
+  const stepTo = (tx, ty, ts, to, u) => {
+    const nx = -(ty - y), ny = tx - x, L = Math.hypot(nx, ny) || 1;
+    const bow = Math.sin(Math.PI * u) * curve;
+    x = lerp(x, tx, u) + nx / L * bow;
+    y = lerp(y, ty, u) + ny / L * bow;
+    s = lerp(s, ts, u); o = lerp(o, to, u);
+  };
+  const u1 = ease((t - 2.4 - d) / .95);
+  if (u1 > 0) stepTo(f.read[0], f.read[1], 1, 1, u1);
+  const u2 = ease((t - 7.75 - d) / 1.25);
+  if (u2 > 0) stepTo(f.clus[0], f.clus[1], 1, 1, u2);
+  const u3 = ease((t - 9.9 - d) / 1.25);
+  if (u3 > 0) stepTo(f.orb[0], f.orb[1], scaleOf(f.t), opacityOf(f.t), u3);
+  const u4 = ease((t - 16.5 - d * .6) / .85);
+  if (u4 > 0) stepTo(f.page[0], f.page[1], f.pageS, 1, u4);
+  return { x, y, s, o };
+}
+
+window.renderAt = function renderAt(t) {
+  t = ((t % DURATION) + DURATION) % DURATION;
+  ctx.clearRect(0, 0, 960, 476);
+
+  chrome.style.opacity = 1 - ramp(t, 2.25, 2.65) + ease((t - 17.05) / .4);
+
+  const pos = new Map();
+  F.forEach((f, i) => pos.set(f.id, fragState(f, i, t)));
+
+  /* focus dimming */
+  const pairNow = PAIRS.find(p => t >= p.t0 && t < p.t1);
+  const pairDim = win(t, 5.0, 6.85, .2);
+  const splitting = win(t, 13.5, 15.0, .2);   // others at x0.16 while the sentence splits
+  const redB = ramp(t, 13.5, 13.7) * (1 - ramp(t, 14.45, 14.9));
+
+  /* vector ticks under every fragment */
+  const vecA = ramp(t, 3.65, 3.95) * (1 - ramp(t, 4.85, 5.1));
+  if (vecA > 0) {
+    ctx.strokeStyle = '#000';
+    ctx.lineWidth = 1;
+    F.forEach((f, i) => {
+      const p = pos.get(f.id);
+      const under = f.img ? 66 : 15;
+      for (let k = 0; k < 44; k++) {
+        const reveal = ramp(t, 3.65 + hash(i * 7 + k) * .35, 3.95 + hash(i * 7 + k) * .35);
+        const h = (1.5 + hash(i * 101 + k * 13) * 9) * reveal;
+        ctx.globalAlpha = vecA;
+        const px = Math.round(p.x - 66 + k * 3) + .5;
+        ctx.beginPath(); ctx.moveTo(px, p.y + under); ctx.lineTo(px, p.y + under + h); ctx.stroke();
+      }
+    });
+    ctx.globalAlpha = 1;
+  }
+
+  /* cuts inside the running text */
+  const cutA = ramp(t, 1.5, 1.8) * (1 - ramp(t, 2.4, 2.6));
+  if (cutA > 0) {
+    ctx.strokeStyle = '#ff0000'; ctx.lineWidth = 1;
+    CUTS.forEach((c, i) => {
+      const u = outCubic(ramp(t, 1.5 + i * .13, 1.85 + i * .13));
+      const x = Math.round(c[0]) + .5;
+      ctx.beginPath(); ctx.moveTo(x, c[1] - 12 * u); ctx.lineTo(x, c[1] + 12 * u); ctx.stroke();
+    });
+  }
+
+  /* the pair measurements */
+  if (pairNow) {
+    const a = pos.get(pairNow.a), b = pos.get(pairNow.b);
+    const u = outCubic(ramp(t, pairNow.t0, pairNow.t0 + .38));
+    ctx.strokeStyle = '#ff0000'; ctx.lineWidth = 1.2;
+    ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(lerp(a.x, b.x, u), lerp(a.y, b.y, u)); ctx.stroke();
+    elPair.textContent = pairNow.v;
+    elPair.style.left = lerp(a.x, b.x, .5) + 'px';
+    elPair.style.top = lerp(a.y, b.y, .5) + 'px';
+    elPair.style.opacity = ramp(t, pairNow.t0 + .3, pairNow.t0 + .45) * (1 - ramp(t, pairNow.t1 - .12, pairNow.t1));
+  } else elPair.style.opacity = 0;
+
+  /* every pair */
+  const allA = ramp(t, 6.8, 7.2) * (1 - ramp(t, 7.55, 8.2));
+  if (allA > 0) {
+    ctx.lineWidth = 1;
+    ALL_PAIRS.forEach(([a, b, h], k) => {
+      const lineU = ramp(t, 6.8 + h * .3, 7.0 + h * .3);
+      if (lineU <= 0) return;
+      const pa = pos.get(a.id), pb = pos.get(b.id);
+      ctx.strokeStyle = `rgba(255,0,0,${.24 * allA * lineU})`;
+      ctx.beginPath(); ctx.moveTo(pa.x, pa.y); ctx.lineTo(pb.x, pb.y); ctx.stroke();
+    });
+  }
+
+  /* threads: rgba(255,0,0,(.28+.6s)*alpha), width 1+.5s */
+  const thread = ramp(t, 8.5, 9.3) - .82 * ramp(t, 9.9, 10.9) - .18 * ramp(t, 16.5, 16.8);
+  const threadA = clamp(thread) * (1 - .84 * splitting);
+  if (threadA > 0) {
+    EDGES.forEach(([ia, ib, s], k) => {
+      const a = pos.get(ia), b = pos.get(ib);
+      ctx.strokeStyle = `rgba(255,0,0,${(.28 + .6 * s) * threadA})`;
+      ctx.lineWidth = 1 + .5 * s;
+      ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
+    });
+  }
+
+  /* fragments */
+  const piecesLive = t >= 14.05 && t < 17.35;
+  F.forEach((f, i) => {
+    const p = pos.get(f.id);
+    let o = p.o;
+    if (pairNow || pairDim > 0) {
+      const inPair = pairNow && (f.id === pairNow.a || f.id === pairNow.b);
+      o *= inPair ? 1 : lerp(1, .16, pairDim);
+    }
+    if (f.id !== 'B' && splitting > 0) o *= lerp(1, .16, splitting);
+    if (f.id === 'B' && piecesLive) o = 0;
+    f.el.style.opacity = o;
+    f.el.style.transform = `translate(${p.x}px,${p.y}px) translate(-50%,-50%) scale(${p.s})`;
+    if (f.id === 'B') f.el.style.color = `rgb(${Math.round(255 * redB)},0,0)`;
+  });
+
+  /* phrases */
+  PIECES.forEach((f, i) => {
+    if (!piecesLive) { f.el.style.opacity = 0; return; }
+    const u = ease((t - 14.05 - i * .06) / .6);
+    let x = lerp(f.orbAt[0], f.orb[0], u), y = lerp(f.orbAt[1], f.orb[1], u) + Math.sin(Math.PI * u) * -14;
+    let s = lerp(f.orbS0, scaleOf(f.t), u), o = lerp(opacityOf(byId.B.t), opacityOf(f.t), ease(ramp(t, 14.3, 14.9)));
+    const back = ease((t - 16.5) / .85);
+    if (back > 0) {
+      const X = lerp(x, f.pageAt[0], back), Y = lerp(y, f.pageAt[1], back);
+      x = X; y = Y; s = lerp(s, f.pageS, back); o = lerp(o, 1, back);
+    }
+    f.el.style.opacity = o;
+    f.el.style.transform = `translate(${x}px,${y}px) translate(-50%,-50%) scale(${s})`;
+    f.el.style.color = `rgb(${Math.round(255 * (1 - ramp(t, 14.45, 14.9)))},0,0)`;
+  });
+
+  /* notes */
+  elFormula.style.opacity = win(t, 5.0, 7.7, .3);
+  elCount.style.opacity = ramp(t, 6.8, 7.1);
+  const qT = ramp(t, 10.0, 10.6) * (1 - ramp(t, 16.5, 16.8));
+  elQuery.style.opacity = qT;
+  elQuery.style.left = '480px'; elQuery.style.top = '220px';
+  elLaw.style.opacity = win(t, 10.8, 13.5, .3);
+  const M = pos.get('M');
+  elFloor.style.opacity = win(t, 12.15, 13.5, .25);
+  elFloor.style.left = (M.x + 44) + 'px';
+  elFloor.style.top = (M.y - 12) + 'px';
+
+  /* captions + progress */
+  CAPS.forEach(c => { c.el.style.opacity = win(t, c[0], c[1], .16); });
+  let step = 0;
+  SEG_T.forEach((s, i) => { if (t >= s) step = i; });
+  if (t >= 16.5) step = -1;
+  if (t >= 17.5) step = 0;
+  segs.forEach((d, i) => {
+    const on = i === step;
+    d.style.height = on ? '3px' : '1px';
+    d.style.background = on ? '#0000ff' : '#000';
+    d.style.marginTop = on ? '-1px' : '0';
+  });
+};
+
+window.motionReady = document.fonts.ready.then(() => { window.renderAt(0); return true; });
+</script>
+</body>
+</html>

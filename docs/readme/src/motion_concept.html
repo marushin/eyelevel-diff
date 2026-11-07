@@ -1,0 +1,376 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>Search concept motion</title>
+<!--
+  검색 개념 모션. window.renderAt(seconds)가 그 시각의 화면 전체를 그린다.
+  타이머와 CSS 애니메이션이 없어서 같은 시각은 항상 같은 프레임이 된다.
+  렌더링: node docs/readme/src/render-motion.mjs docs/readme/src/motion_concept.html docs/readme/motion_concept.webp --lossless
+
+  화면의 검색어와 카드 제목은 README_image/awesome-search3.gif에 녹화된 "고양이" 검색 응답에서 옮겼다.
+  이어가기 뒤의 새 카드는 제목을 그리지 않았다(지어낸 결과를 보여주지 않기 위해).
+-->
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { width: 960px; height: 540px; overflow: hidden; background: #fff; }
+  body { font-family: "AppleMyungjo", "Noto Serif KR", serif; color: #000; position: relative; }
+  #root { position: absolute; inset: 0; }
+  #world { position: absolute; left: 0; top: 0; width: 960px; height: 540px; transform-origin: 0 0; --b: 1px; }
+  #world svg { position: absolute; left: 0; top: 0; overflow: visible; }
+  .card { position: absolute; background: #fff; border: var(--b) solid #000; padding: 7px 8px; }
+  .tab { position: absolute; left: calc(var(--b) * -1); bottom: 100%; width: 65.2%; height: 22px; border: var(--b) solid #000; display: flex; align-items: center; padding: 0 7px; font-size: 14px; line-height: 1; white-space: nowrap; }
+  .tab.good { background: #0000ff; color: #fff; }
+  .title { font-size: 13px; line-height: 1.32; max-height: 2.64em; overflow: hidden; word-break: keep-all; }
+  .title.single { white-space: nowrap; max-height: 1.32em; }
+  .rule { height: var(--b); background: #000; margin-top: 7px; }
+  .rule.fat { height: 3px; width: 62%; margin-top: 2px; margin-bottom: 10px; }
+  .term { position: absolute; font-size: 15px; line-height: 20px; white-space: nowrap; }
+  .dot { position: absolute; width: 11px; height: 11px; border-radius: 50%; border: var(--b) solid #000; }
+  #axis { position: absolute; height: var(--b); background: #000; transform-origin: 0 50%; }
+  .axis-end { position: absolute; font-size: 16px; line-height: 20px; white-space: nowrap; }
+  #runner { position: absolute; width: 9px; height: 9px; border-radius: 50%; background: #000; }
+  #query { position: absolute; left: 32px; top: 22px; font-size: 24px; line-height: 32px; white-space: nowrap; transform-origin: 0 0; }
+  #query .label { margin-right: .3em; }
+  #caret { display: inline-block; width: 1px; height: .92em; background: #000; vertical-align: -0.1em; margin-left: 2px; }
+  #queryLine { position: absolute; left: 32px; height: 1px; background: #000; }
+  #next { position: absolute; left: 0; top: 0; font-size: 24px; line-height: 32px; white-space: nowrap; transform-origin: 0 0; }
+  #sep { position: absolute; font-size: 24px; line-height: 32px; top: 22px; }
+  #captionLine { position: absolute; left: 32px; right: 32px; top: 478px; height: 1px; background: #000; transform-origin: 0 50%; }
+  .caption { position: absolute; left: 32px; top: 492px; font-size: 26px; line-height: 34px; white-space: nowrap; }
+  #detail { position: absolute; top: 432px; left: 50%; transform: translateX(-50%); background: #fff; padding: 3px 14px; font-size: 19px; line-height: 26px; white-space: nowrap; display: flex; gap: 22px; }
+  #fade { position: absolute; inset: 0; background: #fff; pointer-events: none; }
+</style>
+</head>
+<body>
+<div id="root">
+  <div id="world"><svg id="lines" width="960" height="540"></svg></div>
+  <div id="queryLine"></div>
+  <div id="query"><span class="label">검색어:</span><span id="value"></span><span id="caret"></span></div>
+  <div id="sep">→</div>
+  <div id="next">코발라민 리보스위치 – 위키백과</div>
+  <div id="captionLine"></div>
+  <div id="detail"><span>되돌아가기</span><span>분해</span><span id="go">검색 이어가기</span></div>
+  <div id="fade"></div>
+</div>
+<script>
+(() => {
+  const DURATION = 15.9;
+  const QUERY = '고양이';
+  const ORANGE = { 1: '#ff9e4d', 2: '#ffaf66', 3: '#ffc080', 4: '#ffd09a' };
+  const CARD_RATIO = 300 / 460;
+
+  const clamp = (v, a = 0, b = 1) => Math.min(b, Math.max(a, v));
+  const mix = (a, b, t) => a + (b - a) * t;
+  const progress = (t, a, b) => clamp((t - a) / (b - a));
+  const easeOut = (x) => 1 - Math.pow(1 - x, 3.2);
+  const easeInOut = (x) => (x < .5 ? 8 * x * x * x * x : 1 - Math.pow(-2 * x + 2, 4) / 2);
+  const span = (t, a, b, ease = easeOut) => ease(progress(t, a, b));
+  const el = (tag, cls, parent, text) => {
+    const node = document.createElement(tag);
+    if (cls) node.className = cls;
+    if (text != null) node.textContent = text;
+    parent.append(node);
+    return node;
+  };
+  const world = document.getElementById('world');
+  const lines = document.getElementById('lines');
+
+  /* ---------- scene data (world coordinates: at zoom 1, one unit is one screen pixel) ---------- */
+  const goodTitles = ['고양이', '고양이보호협회', "직장 다니고 요리하는 고양이…'AI 반려동물' 중국서 유행", '고양이 눈 | Daum 갤러리', '나에게 맞는 고양이 품종 선택하기'];
+  const terms = [
+    { rank: 1, lines: ['톡소포자충', '행동 조작'], x: 354, w: 150, titles: ['[열린세상] 고양이 기생충, 사람의 행동도 조종한다', '그 쥐가 고양이 앞에서만 대담했던 것은 아니었다'] },
+    { rank: 2, lines: ['고양이 Fel d 1', '알레르겐 단백질'], x: 512, w: 136, titles: ['펠 디 1 – 위키백과', '고양이 털 알레르기, 신속 치료 방법 개발'] },
+    { rank: 3, lines: ['삼색 고양이', 'X염색체 불활성화'], x: 648, w: 122, titles: ['삼색고양이는 무조건 암컷?', 'X-불활성화 – 위키백과'] },
+    { rank: 4, lines: ['비타민 B12', '리보스위치'], x: 802, w: 110, titles: ['리보스위치 – 위키백과', '코발라민 리보스위치 – 위키백과'] },
+  ];
+  const T = { // timeline, seconds
+    type: .25, typeEnd: .95, dock: 1.45, dockEnd: 2.15,
+    good: 2.2, goodStep: .34,
+    axis: 4.75, axisEnd: 6.9,
+    term: 4.95, termStep: .56,
+    arrows: 7.25, arrowStep: .14,
+    run: 8.15, runEnd: 9.55,
+    select: 9.75, press: 10.55, fly: 10.8, flyEnd: 11.6,
+    camera: 10.8, cameraEnd: 12.2,
+    next: 11.5, nextStep: .14,
+    nextArrows: 13.0, nextArrowStep: .1,
+    hold: 14.0, fade: 15.5,
+  };
+
+  const cards = [];
+  const addCard = (spec) => {
+    const node = el('div', 'card', world);
+    Object.assign(node.style, { left: `${spec.x}px`, top: `${spec.y}px`, width: `${spec.w}px`, height: `${spec.w * CARD_RATIO}px` });
+    const tab = el('div', `tab${spec.rank ? '' : ' good'}`, node, spec.rank ? `0${spec.rank} skewed` : 'aligned');
+    if (spec.rank) tab.style.background = ORANGE[spec.rank];
+    if (spec.w < 125) { tab.style.fontSize = '13px'; tab.style.width = '74%'; tab.style.padding = '0 5px'; }
+    if (spec.title) el('div', spec.single ? 'title single' : 'title', node, spec.title).style.fontSize = `${Math.max(11.5, Math.min(13, spec.w / 12))}px`;
+    else el('div', 'rule fat', node);
+    const rules = spec.w > 165 ? 3 : 1;
+    if (!spec.title) { el('div', 'rule', node); el('div', 'rule', node); }
+    if (spec.title) for (let i = 0; i < rules; i += 1) el('div', 'rule', node);
+    spec.node = node;
+    cards.push(spec);
+    return spec;
+  };
+
+  const trunk = goodTitles.map((title, i) => {
+    const w = 170 + 10 * i;
+    return addCard({ title, single: i < 4, x: 116 - 22 * i, y: 92 + 50 * i, w, at: T.good + T.goodStep * i, batch: 0 });
+  });
+  const stacks = terms.map((term, r) => {
+    const at = T.term + T.termStep * r + .12;
+    const back = addCard({ rank: term.rank, title: term.titles[0], single: true, x: term.x, y: 162, w: term.w, at, batch: 0 });
+    const front = addCard({ rank: term.rank, title: term.titles[1], x: term.x - 12, y: 208, w: term.w * 1.06, at: at + .12, batch: 0 });
+    return { term, back, front };
+  });
+  const chosen = stacks[3].front;
+  // The chosen card shows its full title, because that title becomes the next query.
+  chosen.node.querySelector('.title').style.maxHeight = 'none';
+  chosen.node.querySelector('.rule').style.display = 'none';
+
+  // The continued search: cards attach just in front of the chosen card. Titles are not drawn.
+  // It sits to the right of the first stack, clear of the rails that lead to the chosen card.
+  const nextTrunk = [0, 1, 2, 3].map((i) => {
+    const w = 132 + 8 * i;
+    return addCard({ x: 1060 - 22 * i, y: 150 + 44 * i, w, at: T.next + T.nextStep * i, batch: 1 });
+  });
+  // Skewed cards read 01 to 04 from left to right, as in the first stack.
+  const nextFan = [
+    { rank: 1, x: 470, y: 452, w: 118 },
+    { rank: 2, x: 620, y: 452, w: 118 },
+    { rank: 3, x: 770, y: 452, w: 118 },
+    { rank: 4, x: 920, y: 452, w: 118 },
+  ].map((s, i) => {
+    const at = T.next + .5 + .16 * i;
+    const back = addCard({ ...s, at, batch: 1 });
+    const front = addCard({ rank: s.rank, x: s.x - 10, y: s.y + 28, w: s.w * 1.06, at: at + .08, batch: 1 });
+    return { back, front };
+  });
+
+  // Term labels, the near-to-far axis, rank dots.
+  const AXIS_Y = 116;
+  const AXIS_X0 = 344;
+  const AXIS_X1 = 904;
+  const axis = el('div', '', world); axis.id = 'axis';
+  Object.assign(axis.style, { left: `${AXIS_X0}px`, top: `${AXIS_Y}px`, width: `${AXIS_X1 - AXIS_X0}px` });
+  const nearLabel = el('div', 'axis-end', world, '가까이');
+  Object.assign(nearLabel.style, { right: `${960 - AXIS_X0 + 3}px`, top: `${AXIS_Y - 10}px` });
+  const farLabel = el('div', 'axis-end', world, '멀리');
+  Object.assign(farLabel.style, { left: `${AXIS_X1 + 8}px`, top: `${AXIS_Y - 10}px` });
+  const runner = el('div', '', world); runner.id = 'runner';
+  const termNodes = terms.map((term) => {
+    const label = el('div', 'term', world);
+    Object.assign(label.style, { left: `${term.x - 10}px`, top: '66px' });
+    term.lines.forEach((text) => el('div', '', label, text));
+    const dot = el('div', 'dot', world);
+    Object.assign(dot.style, { left: `${term.x - 10}px`, top: `${AXIS_Y - 5}px`, background: ORANGE[term.rank] });
+    return { label, dot };
+  });
+
+  /* ---------- red arrows, good card to skewed card, as in the app ---------- */
+  const svgNS = 'http://www.w3.org/2000/svg';
+  const arrows = [];
+  const addArrow = (points, at, color = '#ff0000', width = 1) => {
+    const line = document.createElementNS(svgNS, 'path');
+    line.setAttribute('d', points.map(([x, y], i) => `${i ? 'L' : 'M'}${x} ${y}`).join(''));
+    line.setAttribute('pathLength', '1');
+    line.setAttribute('fill', 'none');
+    line.setAttribute('stroke', color);
+    line.setAttribute('stroke-width', String(width));
+    line.setAttribute('vector-effect', 'non-scaling-stroke');
+    const [ex, ey] = points[points.length - 1];
+    const head = document.createElementNS(svgNS, 'path');
+    const [px, py] = points[points.length - 2];
+    const len = Math.hypot(ex - px, ey - py) || 1;
+    const ux = (ex - px) / len, uy = (ey - py) / len;
+    head.setAttribute('d', `M${ex - ux * 7 - uy * 4} ${ey - uy * 7 + ux * 4}L${ex} ${ey}L${ex - ux * 7 + uy * 4} ${ey - uy * 7 - ux * 4}`);
+    head.setAttribute('fill', 'none');
+    head.setAttribute('stroke', color);
+    head.setAttribute('stroke-width', String(width));
+    head.setAttribute('vector-effect', 'non-scaling-stroke');
+    lines.append(line, head);
+    arrows.push({ line, head, at });
+  };
+  const bottom = (c) => c.y + c.w * CARD_RATIO;
+  const middle = (c) => c.x + c.w / 2;
+  const right = (c) => c.x + c.w;
+  [[3, 332], [3, 352], [3, 372], [4, 394]].forEach(([from, rail], r) => {
+    const source = trunk[from];
+    const target = stacks[r].front;
+    addArrow([[right(source), rail], [middle(target), rail], [middle(target), bottom(target) + 2]], T.arrows + T.arrowStep * r);
+  });
+  // Black link: the chosen card's title started this stack. Not a red rule arrow.
+  addArrow([[right(chosen), 246], [955, 246], [955, nextTrunk[3].y + 40], [nextTrunk[3].x - 2, nextTrunk[3].y + 40]], T.next, '#000', 2);
+  // Each skewed stack gets one red arrow. Rails stay below the first stack's lowest rail (y 394) and do not cross.
+  const tabTop = (c) => c.y - 24;
+  const nextBottom = bottom(nextTrunk[3]);
+  nextFan.forEach(({ back }, i) => {
+    const startX = 1000 + 10 * i;
+    const rail = 404 + 6 * i;
+    addArrow([[startX, nextBottom], [startX, rail], [middle(back), rail], [middle(back), tabTop(back) - 2]], T.nextArrows + T.nextArrowStep * i);
+  });
+
+  // Cards paint over arrows.
+  world.prepend(lines);
+
+  /* ---------- captions ---------- */
+  const captions = [
+    { text: '검색어 하나', a: .35, b: 2.15 },
+    { text: '검색어 그대로 — Google 상위 결과', a: 2.25, b: 4.65 },
+    { text: 'LLM이 새 검색어를 만듭니다', a: 4.75, b: 7.95 },
+    { text: '1순위는 가깝게, 4순위는 거의 다른 주제로', a: 8.05, b: 9.65 },
+    { text: '카드를 고르면, 그 제목으로 이어서 검색', a: 9.75, b: 12.5 },
+    { text: '지나온 길은 그대로 남습니다', a: 12.6, b: DURATION + 1 },
+  ].map((c) => ({ ...c, node: el('div', 'caption', document.getElementById('root'), c.text) }));
+
+  /* ---------- fixed elements ---------- */
+  const q = document.getElementById('query');
+  const value = document.getElementById('value');
+  const caret = document.getElementById('caret');
+  const qLine = document.getElementById('queryLine');
+  const next = document.getElementById('next');
+  const sep = document.getElementById('sep');
+  const captionLine = document.getElementById('captionLine');
+  const detail = document.getElementById('detail');
+  const go = document.getElementById('go');
+  const fade = document.getElementById('fade');
+  document.getElementById('root').append(fade);
+
+  // Layout measured once so that every frame is computed from the same numbers.
+  value.textContent = QUERY;
+  const qWidth = q.offsetWidth;
+  const nextWidth = next.offsetWidth;
+  const SEP_X = 32 + qWidth + 8;
+  const NEXT_X = SEP_X + 34;
+  sep.style.left = `${SEP_X}px`;
+
+  const OVERVIEW = { zoom: .79, x: 6, y: 16 };
+
+  function renderAt(t) {
+    t = ((t % DURATION) + DURATION) % DURATION;
+
+    /* camera */
+    const cam = span(t, T.camera, T.cameraEnd, easeInOut);
+    const zoom = mix(1, OVERVIEW.zoom, cam);
+    world.style.transform = `translate(${mix(0, OVERVIEW.x, cam)}px, ${mix(0, OVERVIEW.y, cam)}px) scale(${zoom})`;
+    world.style.setProperty('--b', `${1 / zoom}px`);
+
+    /* selection dims everything except the chosen card */
+    const dim = span(t, T.select, T.select + .4) * (1 - span(t, T.fly, T.fly + .6));
+    const chosenOn = span(t, T.select, T.select + .35);
+
+    for (const card of cards) {
+      const e = span(t, card.at, card.at + .55);
+      const isChosen = card === chosen;
+      // a soft bump as the marker passes this stack on the axis
+      let bump = 0;
+      if (card.rank && card.batch === 0) {
+        const term = terms[card.rank - 1];
+        const when = mix(T.run, T.runEnd, (term.x - AXIS_X0) / (AXIS_X1 - AXIS_X0));
+        const p = progress(t, when - .1, when + .42);
+        bump = Math.sin(p * Math.PI) * 9;
+      }
+      const lift = isChosen ? chosenOn * 10 : 0;
+      card.node.style.opacity = String(e * (isChosen ? 1 : 1 - dim * .78));
+      card.node.style.transform = `translateY(${(1 - e) * 26 - bump - lift}px)`;
+      if (isChosen) {
+        card.node.style.outline = chosenOn > .02 ? `${2 / zoom}px solid #000` : 'none';
+        card.node.style.outlineOffset = `-${1 / zoom}px`;
+      }
+    }
+
+    /* axis, labels, dots */
+    axis.style.transform = `scaleX(${span(t, T.axis, T.axisEnd, easeInOut)})`;
+    axis.style.opacity = String(1 - dim * .78);
+    nearLabel.style.opacity = String(span(t, T.axis, T.axis + .5) * (1 - dim * .78));
+    farLabel.style.opacity = String(span(t, T.axisEnd - .3, T.axisEnd + .2) * (1 - dim * .78));
+    terms.forEach((term, r) => {
+      const at = T.term + T.termStep * r;
+      const e = span(t, at, at + .5);
+      const { label, dot } = termNodes[r];
+      label.style.opacity = String(e * (r === 3 ? 1 - dim * .4 : 1 - dim * .78));
+      label.style.transform = `translateY(${(1 - e) * 8}px)`;
+      dot.style.opacity = String(span(t, at, at + .2) * (1 - dim * .78));
+      dot.style.transform = `scale(${e})`;
+    });
+    const run = span(t, T.run, T.runEnd, easeInOut);
+    runner.style.left = `${mix(AXIS_X0, AXIS_X1, run) - 4.5}px`;
+    runner.style.top = `${AXIS_Y - 4}px`;
+    runner.style.opacity = String(span(t, T.run - .2, T.run + .05) * (1 - span(t, T.runEnd, T.runEnd + .25)));
+
+    /* arrows */
+    for (const arrow of arrows) {
+      const p = span(t, arrow.at, arrow.at + .62, easeInOut);
+      arrow.line.setAttribute('stroke-dasharray', `${p} 1`);
+      arrow.line.style.opacity = p > 0 ? String(1 - dim * .78) : '0';
+      const h = progress(t, arrow.at + .52, arrow.at + .64);
+      arrow.head.style.opacity = String(h * (1 - dim * .78));
+    }
+
+    /* query line: typed in the centre, then docked at the top left */
+    const typed = Math.floor(clamp((t - T.type) / (T.typeEnd - T.type)) * (QUERY.length + .999));
+    value.textContent = QUERY.slice(0, typed);
+    const dock = span(t, T.dock, T.dockEnd, easeInOut);
+    const heroScale = 2.1;
+    const heroX = (960 - qWidth * heroScale) / 2;
+    const heroY = 196;
+    const scale = mix(heroScale, 1, dock);
+    q.style.transform = `translate(${mix(heroX - 32, 0, dock)}px, ${mix(heroY - 22, 0, dock)}px) scale(${scale})`;
+    q.style.opacity = String(span(t, .02, .3));
+    const blink = Math.floor(t * 2.4) % 2 === 0;
+    caret.style.opacity = t < T.dock && (blink || t < T.typeEnd) ? '1' : '0';
+    const lineLeft = mix(heroX, 32, dock);
+    const lineTop = mix(heroY + 32 * heroScale + 6, 22 + 32 + 2, dock);
+    const lineGrow = span(t, .1, 1.0, easeInOut);
+    const nextIn = span(t, T.flyEnd - .15, T.flyEnd + .2);
+    const fullWidth = NEXT_X + nextWidth - 32;
+    qLine.style.left = `${lineLeft}px`;
+    qLine.style.top = `${lineTop}px`;
+    qLine.style.width = `${mix(qWidth * scale, fullWidth, nextIn) * lineGrow}px`;
+
+    /* the chosen card's title flies up into the query line */
+    const fly = span(t, T.fly, T.flyEnd, easeInOut);
+    const startScale = 12.5 / 24;
+    const pad = 8;
+    const camX = mix(0, OVERVIEW.x, cam);
+    const camY = mix(0, OVERVIEW.y, cam);
+    const fromX = camX + (chosen.x + pad) * zoom;
+    const fromY = camY + (chosen.y - 10 + 7) * zoom;
+    const tx = mix(fromX, NEXT_X, fly);
+    const ty = mix(fromY, 22, fly);
+    const ts = mix(startScale * zoom, 1, fly);
+    next.style.transform = `translate(${tx}px, ${ty}px) scale(${ts})`;
+    next.style.opacity = t < T.fly ? '0' : String(span(t, T.fly, T.fly + .12));
+    next.style.background = fly < 1 ? '#fff' : 'none';
+    sep.style.opacity = String(nextIn);
+
+    /* detail bar: the app's real buttons */
+    const barIn = span(t, T.select + .15, T.select + .5);
+    const barOut = span(t, T.fly - .05, T.fly + .25);
+    detail.style.opacity = String(barIn * (1 - barOut));
+    const pressed = t >= T.press;
+    go.style.color = pressed ? '#0000ff' : '#000';
+    go.style.textDecoration = pressed ? 'underline' : 'none';
+
+    /* caption */
+    captionLine.style.transform = `scaleX(${span(t, .2, 1.3, easeInOut)})`;
+    for (const c of captions) {
+      const i = span(t, c.a, c.a + .4);
+      const o = 1 - progress(t, c.b - .18, c.b);
+      c.node.style.opacity = String(i * o);
+      c.node.style.transform = `translateY(${(1 - i) * 10}px)`;
+    }
+
+    /* loop: wash to white, frame zero is white too */
+    fade.style.opacity = String(Math.max(span(t, T.fade, DURATION - .05, easeInOut), t < .02 ? 1 : 0));
+  }
+
+  window.renderAt = renderAt;
+  window.MOTION_DURATION = DURATION;
+  renderAt(new URLSearchParams(location.search).has('t') ? Number(new URLSearchParams(location.search).get('t')) : 14.5);
+})();
+</script>
+</body>
+</html>

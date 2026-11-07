@@ -1,0 +1,572 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Deconstruct 확인</title>
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg: #f6f6f4; --surface: #ffffff; --surface-2: #eeeeeb; --border: #dcdcd7;
+    --text: #1d1d1b; --muted: #6b6b66; --accent: #2d5bd7; --accent-text: #ffffff;
+    --ok: #1c7a46; --warn: #a15c00; --bad: #c2362b;
+    --ok-bg: #e2f3e9; --warn-bg: #fbeed8; --bad-bg: #fbe5e2;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #171716; --surface: #222220; --surface-2: #2d2d2a; --border: #3a3a36;
+      --text: #ececE8; --muted: #a3a39c; --accent: #7f9ff0; --accent-text: #10131c;
+      --ok: #6bcb95; --warn: #e3ad5e; --bad: #f08a80;
+      --ok-bg: #1d3226; --warn-bg: #39291a; --bad-bg: #3c211e;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font: 15px/1.5 -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
+  }
+  main { max-width: 1280px; margin: 0 auto; padding: 24px 16px 64px; }
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  .sub { color: var(--muted); margin: 0 0 16px; font-size: 14px; }
+  form { display: flex; gap: 8px; }
+  input[type="url"], input[type="search"] {
+    flex: 1; min-width: 0; font: inherit; color: inherit; background: var(--surface);
+    border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px;
+  }
+  button { font: inherit; cursor: pointer; }
+  .primary {
+    background: var(--accent); color: var(--accent-text); border: 0; border-radius: 8px;
+    padding: 10px 18px; font-weight: 600; white-space: nowrap;
+  }
+  .primary:disabled { opacity: .6; cursor: wait; }
+  .samples { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+  .link-btn { background: none; border: 0; color: var(--accent); padding: 2px 4px; font-size: 13px; }
+  .status { margin-top: 20px; padding: 14px 16px; border-radius: 8px; background: var(--surface); border: 1px solid var(--border); }
+  .status.error { background: var(--bad-bg); border-color: var(--bad); color: var(--bad); }
+  .status code { font-weight: 600; }
+  [hidden] { display: none !important; }
+
+  .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 8px; margin-top: 20px; }
+  .tile { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; }
+  .tile b { display: block; font-size: 20px; font-variant-numeric: tabular-nums; }
+  .tile span { color: var(--muted); font-size: 12px; }
+  .meta-line { color: var(--muted); font-size: 13px; margin-top: 10px; overflow-wrap: anywhere; }
+  .warnings { margin-top: 10px; padding: 8px 12px; border-radius: 8px; background: var(--warn-bg); color: var(--warn); font-size: 13px; }
+
+  .weight-summary {
+    display: flex; flex-direction: column; gap: 6px; margin-top: 10px; padding: 10px 12px;
+    background: var(--surface); border: 1px solid var(--border); border-radius: 8px; font-size: 13px;
+  }
+  .weight-summary input { width: 100%; }
+  .weight-summary span { color: var(--muted); font-size: 12px; }
+
+  .tabs { display: flex; gap: 4px; margin-top: 20px; border-bottom: 1px solid var(--border); }
+  .tab { background: none; border: 0; border-bottom: 2px solid transparent; padding: 8px 12px; color: var(--muted); }
+  .tab[aria-selected="true"] { color: var(--text); border-bottom-color: var(--accent); font-weight: 600; }
+
+  .filters { display: flex; flex-direction: column; gap: 8px; margin: 14px 0; }
+  .filter-row { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
+  .filter-row > span { width: 72px; flex: none; color: var(--muted); font-size: 12px; }
+  .chip {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 999px; color: inherit;
+    padding: 2px 10px; font-size: 13px;
+  }
+  .chip[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--accent-text); }
+  .chip small { opacity: .75; margin-left: 3px; font-variant-numeric: tabular-nums; }
+
+  .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 10px; align-items: start; }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; min-width: 0; }
+  .card-body { padding: 10px 12px; }
+  .card-text { margin: 6px 0 0; overflow-wrap: anywhere; }
+  .card.heading .card-text { font-weight: 700; font-size: 17px; }
+  .thumb {
+    display: flex; align-items: center; justify-content: center; height: 150px;
+    background: repeating-conic-gradient(var(--surface-2) 0 25%, var(--surface) 0 50%) 0 0 / 16px 16px;
+  }
+  .thumb img { max-width: 100%; max-height: 100%; object-fit: contain; display: block; }
+  .thumb .failed { color: var(--bad); font-size: 13px; background: var(--bad-bg); padding: 4px 8px; border-radius: 6px; }
+  .badges { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+  .badge { font-size: 11px; padding: 0 6px; border-radius: 4px; background: var(--surface-2); color: var(--muted); white-space: nowrap; }
+  .badge.index { background: none; padding: 0 2px 0 0; font-variant-numeric: tabular-nums; }
+  .badge.ok { background: var(--ok-bg); color: var(--ok); }
+  .badge.warn { background: var(--warn-bg); color: var(--warn); }
+  .badge.bad { background: var(--bad-bg); color: var(--bad); }
+  .desc { margin: 6px 0 0; font-size: 13px; overflow-wrap: anywhere; }
+  .desc.none { color: var(--muted); font-style: italic; }
+  .src { display: block; margin-top: 4px; font-size: 12px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .near { margin-top: 8px; font-size: 12px; color: var(--muted); }
+  .near summary { cursor: pointer; }
+  .neighbors { margin: 4px 0 0; padding: 0; list-style: none; }
+  .neighbors li { margin-top: 3px; overflow-wrap: anywhere; }
+  .neighbors b { color: var(--text); font-variant-numeric: tabular-nums; }
+  .count { color: var(--muted); font-size: 13px; margin: 0 0 8px; }
+
+  pre {
+    margin: 14px 0 0; padding: 14px; background: var(--surface); border: 1px solid var(--border); border-radius: 8px;
+    overflow: auto; max-height: 75vh; font-size: 12.5px; line-height: 1.45;
+  }
+  .note { font-size: 13px; color: var(--muted); margin: 14px 0 0; }
+  .graph-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin: 14px 0 10px; font-size: 13px; }
+  .graph-legend { display: inline-flex; align-items: center; gap: 5px; color: var(--muted); }
+  .dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; margin-left: 4px; }
+  .dot.text { background: var(--accent); }
+  .dot.img { background: var(--warn); }
+  .graph-toggle { display: inline-flex; align-items: center; gap: 4px; }
+  .graph-button { background: var(--surface); color: inherit; border: 1px solid var(--border); border-radius: 6px; padding: 3px 10px; font-size: 13px; }
+  .graph-status { color: var(--muted); margin-left: auto; }
+  .graph-layout { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 10px; }
+  #graph-canvas {
+    width: 100%; height: min(72vh, 760px); min-height: 420px; display: block; touch-action: none; cursor: grab;
+    background: var(--surface); border: 1px solid var(--border); border-radius: 8px;
+  }
+  .graph-panel {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 12px;
+    max-height: min(72vh, 760px); overflow: auto; font-size: 14px; min-width: 0;
+  }
+  .graph-hint { color: var(--muted); margin: 0; font-size: 13px; }
+  .graph-kind { color: var(--muted); margin: 0 0 6px; font-size: 12px; }
+  .graph-content { margin: 0 0 10px; overflow-wrap: anywhere; }
+  .graph-image { display: block; max-width: 100%; max-height: 180px; margin-bottom: 8px; border-radius: 4px; }
+  .graph-neighbors { list-style: none; margin: 8px 0 0; padding: 8px 0 0; border-top: 1px solid var(--border); }
+  .graph-neighbors button {
+    display: block; width: 100%; text-align: left; background: none; border: 0; color: inherit; padding: 5px 2px;
+    font-size: 13px; overflow-wrap: anywhere; border-radius: 4px;
+  }
+  .graph-neighbors button:hover { background: var(--surface-2); }
+  .graph-neighbors b { font-variant-numeric: tabular-nums; color: var(--accent); }
+  @media (max-width: 760px) {
+    .graph-layout { grid-template-columns: minmax(0, 1fr); }
+    .graph-status { margin-left: 0; width: 100%; }
+    .graph-panel { max-height: 320px; }
+  }
+  @media (max-width: 560px) { .filter-row > span { width: 100%; } }
+</style>
+</head>
+<body>
+<main>
+  <h1>Deconstruct 확인</h1>
+  <p class="sub">URL을 넣으면 추출된 텍스트와 이미지를 문서 순서대로 보여 줍니다. 개발 전용 페이지입니다.</p>
+
+  <form id="form">
+    <input id="url" type="url" required placeholder="https://example.com" aria-label="분석할 URL">
+    <button id="submit" class="primary" type="submit">분해</button>
+  </form>
+  <div class="samples" id="samples"></div>
+
+  <div id="status" class="status" role="status" hidden></div>
+
+  <section id="result" hidden>
+    <div class="tiles" id="tiles"></div>
+    <div class="meta-line" id="meta"></div>
+    <div class="warnings" id="warnings" hidden></div>
+    <div class="weight-summary" id="weight-summary" hidden></div>
+
+    <div class="tabs" role="tablist">
+      <button class="tab" id="tab-cards" role="tab" aria-selected="true">카드</button>
+      <button class="tab" id="tab-graph" role="tab" aria-selected="false">그래프</button>
+      <button class="tab" id="tab-json" role="tab" aria-selected="false">API 응답</button>
+    </div>
+
+    <div id="view-cards">
+      <div class="filters" id="filters"></div>
+      <input id="search" type="search" placeholder="내용에서 찾기" aria-label="내용 검색" style="width:100%;margin-bottom:12px">
+      <p class="count" id="count"></p>
+      <div class="cards" id="cards"></div>
+    </div>
+
+    <div id="view-graph" hidden>
+      <div class="graph-bar">
+        <span class="graph-legend"><i class="dot text"></i>텍스트 <i class="dot img"></i>이미지</span>
+        <label class="graph-toggle"><input type="checkbox" id="graph-labels" checked> 라벨</label>
+        <button type="button" class="graph-button" id="graph-fit">전체 보기</button>
+        <button type="button" class="graph-button" id="graph-relayout">다시 배치</button>
+        <span class="graph-status" id="graph-status" role="status"></span>
+      </div>
+      <div class="graph-layout">
+        <canvas id="graph-canvas" aria-label="콘텐츠 유사도 그래프. 노드를 누르면 옆 패널에 내용과 연결된 노드가 표시됩니다."></canvas>
+        <aside class="graph-panel" id="graph-panel"></aside>
+      </div>
+      <p class="note">임계값은 위 슬라이더로 바꿉니다. 끌어서 이동, 휠로 확대, 노드는 끌어서 옮길 수 있습니다. 가까운 노드끼리 모이는 배치는 그래프를 보기 위한 임의의 배치이며, 위치 자체에 의미가 있지는 않습니다.</p>
+    </div>
+
+    <div id="view-json" hidden>
+      <p class="note" id="json-note"></p>
+      <pre id="json"></pre>
+    </div>
+  </section>
+</main>
+
+<script src="/viewer/graph.js"></script>
+<script>
+const $ = (id) => document.getElementById(id);
+const graphView = window.createGraphView({
+  canvas: $("graph-canvas"),
+  panel: $("graph-panel"),
+  status: $("graph-status"),
+  labels: $("graph-labels"),
+  relayout: $("graph-relayout"),
+  fit: $("graph-fit"),
+});
+const SAMPLES = ["https://example.com", "https://www.python.org", "https://ko.wikipedia.org/wiki/예술", "https://www.mmca.go.kr", "https://www.naver.com"];
+const KIND_LABELS = { heading: "제목", button: "버튼", link: "링크", listItem: "목록", text: "문단" };
+const ORIGIN_LABELS = {
+  img: "img", "img-lazy": "지연 img", "css-background": "CSS 배경", "css-pseudo-background": "CSS 가상요소",
+  "video-poster": "비디오 포스터", "svg-image": "SVG image", "input-image": "input image",
+};
+const IMAGE_FILTERS = { failed: "로드 실패", corsBlocked: "CORS 차단", noDesc: "설명 없음", insecure: "HTTP" };
+
+const WEIGHT_PREVIEW = 200;
+let run = 0;
+let items = [];
+const filters = {};
+
+function el(tag, props = {}, ...children) {
+  const node = document.createElement(tag);
+  for (const [key, value] of Object.entries(props)) {
+    if (key === "class") node.className = value;
+    else if (key.startsWith("on")) node.addEventListener(key.slice(2), value);
+    else if (key in node) node[key] = value;
+    else node.setAttribute(key, value);
+  }
+  node.append(...children.filter((child) => child !== null && child !== undefined));
+  return node;
+}
+
+const badge = (text, tone = "") => el("span", { class: `badge ${tone}` }, text);
+
+function showStatus(message, isError = false) {
+  const box = $("status");
+  box.hidden = !message;
+  box.className = `status${isError ? " error" : ""}`;
+  box.replaceChildren();
+  if (message) box.append(...(Array.isArray(message) ? message : [message]));
+}
+
+async function analyze(url) {
+  const current = ++run;
+  $("submit").disabled = true;
+  $("result").hidden = true;
+  const startedAt = Date.now();
+  const tick = () => showStatus(`페이지를 렌더링하는 중… ${((Date.now() - startedAt) / 1000).toFixed(0)}초`);
+  tick();
+  const timer = setInterval(tick, 1000);
+  history.replaceState(null, "", `?url=${encodeURIComponent(url)}`);
+  try {
+    const response = await fetch(`/debug/extract?url=${encodeURIComponent(url)}`);
+    const body = await response.json();
+    if (current !== run) return;
+    if (!response.ok) {
+      const { code = "ERROR", message = "요청에 실패했습니다." } = body.error ?? {};
+      showStatus([el("code", {}, code), ` · ${message}`], true);
+      return;
+    }
+    showStatus("");
+    render(body);
+  } catch {
+    if (current === run) showStatus("서버에 연결하지 못했습니다. 서버가 켜져 있는지 확인하세요.", true);
+  } finally {
+    clearInterval(timer);
+    if (current === run) $("submit").disabled = false;
+  }
+}
+
+function describeImage(meta) {
+  return meta.description || "";
+}
+
+const EMBED_SOURCE_LABELS = { declared: "alt 기반", vision: "Vision 설명", nearby: "주변 글자로 대체", filename: "파일 이름으로 대체" };
+
+function renderNeighbors(node) {
+  if (!node.neighbors?.length) return null;
+  const list = el("ol", { class: "neighbors" });
+  for (const { index, score } of node.neighbors) {
+    const other = state.nodes[index];
+    const label = other.type === "img" ? `이미지: ${other.meta.description || "설명 없음"}` : other.content;
+    list.append(el("li", {}, el("b", {}, score.toFixed(2)), ` #${index} ${label.slice(0, 60)}`));
+  }
+  return el("details", { class: "near" }, el("summary", {}, `가까운 노드 ${node.neighbors[0].score.toFixed(2)}`), list);
+}
+
+function buildCard(node, index, mainFrame) {
+  const { meta } = node;
+  const item = { node, load: "pending", cors: "pending", isFrame: meta.frame !== mainFrame };
+  const badges = el("div", { class: "badges" }, badge(`#${index}`, "index"));
+
+  if (node.type === "text") {
+    badges.append(badge(KIND_LABELS[meta.kind] ?? meta.kind));
+    if (meta.region) badges.append(badge(meta.region));
+    badges.append(badge(`${node.content.length}자`));
+    if (meta.segment) {
+      const { method, part, parts } = meta.segment;
+      badges.append(badge(`${method === "llm" ? "LLM" : "규칙"} 분할 ${part + 1}/${parts}`, method === "llm" ? "ok" : "warn"));
+    }
+  } else {
+    badges.append(badge(ORIGIN_LABELS[meta.origin] ?? meta.origin));
+    if (meta.width) badges.append(badge(`${meta.width}×${meta.height}`));
+    if (meta.embeddingSource) {
+      const fallback = meta.embeddingSource === "nearby" || meta.embeddingSource === "filename";
+      badges.append(badge(EMBED_SOURCE_LABELS[meta.embeddingSource] ?? meta.embeddingSource, fallback ? "warn" : "ok"));
+    }
+  }
+  if (meta.occurrences > 1) badges.append(badge(`${meta.occurrences}회 등장`, "warn"));
+  if (item.isFrame) badges.append(badge("iframe"));
+
+  const body = el("div", { class: "card-body" }, badges);
+  const card = el("article", { class: `card ${node.type === "text" ? meta.kind : "image"}` });
+  item.card = card;
+
+  if (node.type === "text") {
+    body.append(el("p", { class: "card-text" }, node.content));
+    item.searchText = node.content.toLowerCase();
+  } else {
+    const description = describeImage(meta);
+    item.noDesc = !description;
+    item.insecure = node.content.startsWith("http:");
+    item.searchText = `${description} ${node.content}`.toLowerCase();
+
+    const thumb = el("div", { class: "thumb" });
+    const image = el("img", { alt: description, src: node.content });
+    const loadBadge = badge("로드 중");
+    const corsBadge = badge("CORS 확인 중");
+    image.addEventListener("load", () => {
+      item.load = "ok";
+      loadBadge.className = "badge ok";
+      loadBadge.textContent = "로드 성공";
+      refreshCounts();
+    });
+    image.addEventListener("error", () => {
+      item.load = "failed";
+      loadBadge.className = "badge bad";
+      loadBadge.textContent = "로드 실패";
+      image.replaceWith(el("span", { class: "failed" }, "이미지를 불러오지 못했습니다"));
+      refreshCounts();
+    });
+    thumb.append(image);
+    probeCors(node.content, item, corsBadge);
+    badges.append(loadBadge, corsBadge);
+    if (item.insecure) badges.append(badge("HTTP", "warn"));
+
+    body.append(
+      el("p", { class: `desc${description ? "" : " none"}` }, description || "설명 없음"),
+      el("a", { class: "src", href: node.content, target: "_blank", rel: "noopener noreferrer", title: node.content }, node.content),
+    );
+    card.append(thumb);
+  }
+  const neighbors = renderNeighbors(node);
+  if (neighbors) body.append(neighbors);
+  card.append(body);
+  return item;
+}
+
+/** WebGL 텍스처처럼 픽셀을 읽는 용도로 쓸 수 있는지 실제로 불러 본다. */
+function probeCors(url, item, corsBadge) {
+  const probe = new Image();
+  probe.crossOrigin = "anonymous";
+  const finish = (ok) => {
+    item.cors = ok ? "ok" : "blocked";
+    corsBadge.className = `badge ${ok ? "ok" : "warn"}`;
+    corsBadge.textContent = ok ? "CORS 허용" : "CORS 차단";
+    refreshCounts();
+  };
+  probe.onload = () => finish(true);
+  probe.onerror = () => finish(false);
+  probe.src = url;
+}
+
+const matchers = {
+  type: (item, value) => item.node.type === value,
+  kind: (item, value) => item.node.type === "text" && item.node.meta.kind === value,
+  region: (item, value) => item.node.type === "text" && (item.node.meta.region ?? "none") === value,
+  source: (item, value) => (value === "frame" ? item.isFrame : !item.isFrame),
+  segment: (item, value) => item.node.type === "text" && (value === "split" ? Boolean(item.node.meta.segment) : !item.node.meta.segment),
+  image: (item, value) => item.node.type === "img" && (
+    (value === "failed" && item.load === "failed") ||
+    (value === "corsBlocked" && item.cors === "blocked") ||
+    (value === "noDesc" && item.noDesc) ||
+    (value === "insecure" && item.insecure)
+  ),
+};
+
+function buildFilterGroups() {
+  const present = (key) => [...new Set(items.filter((i) => i.node.type === "text").map((i) => i.node.meta[key] ?? "none"))];
+  const regionOrder = ["header", "nav", "main", "article", "aside", "footer", "none"];
+  return [
+    { key: "type", label: "종류", options: [["text", "텍스트"], ["img", "이미지"]] },
+    { key: "kind", label: "텍스트 역할", options: Object.keys(KIND_LABELS).filter((k) => present("kind").includes(k)).map((k) => [k, KIND_LABELS[k]]) },
+    { key: "region", label: "페이지 영역", options: regionOrder.filter((r) => present("region").includes(r)).map((r) => [r, r === "none" ? "영역 없음" : r]) },
+    { key: "segment", label: "의미 분할", options: items.some((i) => i.node.meta.segment) ? [["split", "분할된 조각"], ["whole", "원문 그대로"]] : [] },
+    { key: "source", label: "출처", options: items.some((i) => i.isFrame) ? [["main", "메인 문서"], ["frame", "iframe"]] : [] },
+    { key: "image", label: "이미지 상태", options: items.some((i) => i.node.type === "img") ? Object.entries(IMAGE_FILTERS) : [] },
+  ].filter((group) => group.options.length > 0);
+}
+
+function renderFilters() {
+  const wrap = $("filters");
+  wrap.replaceChildren();
+  for (const group of buildFilterGroups()) {
+    const row = el("div", { class: "filter-row" }, el("span", {}, group.label));
+    for (const [value, label] of [["all", "전체"], ...group.options]) {
+      const chip = el("button", {
+        type: "button", class: "chip",
+        onclick: () => {
+          filters[group.key] = value;
+          applyFilters();
+        },
+      });
+      chip.dataset.group = group.key;
+      chip.dataset.value = value;
+      chip.dataset.label = label;
+      row.append(chip);
+    }
+    wrap.append(row);
+  }
+}
+
+function matchesFilters(item, skipKey = null) {
+  const query = $("search").value.trim().toLowerCase();
+  if (query && !item.searchText.includes(query)) return false;
+  return Object.entries(filters).every(([key, value]) => key === skipKey || value === "all" || matchers[key](item, value));
+}
+
+function applyFilters() {
+  let shown = 0;
+  for (const item of items) {
+    const visible = matchesFilters(item);
+    item.card.hidden = !visible;
+    if (visible) shown += 1;
+  }
+  $("count").textContent = `${items.length}개 중 ${shown}개 표시`;
+  for (const chip of document.querySelectorAll(".chip")) {
+    const { group, value, label } = chip.dataset;
+    chip.setAttribute("aria-pressed", String(filters[group] === value));
+    const count = items.filter((item) => matchesFilters(item, group) && (value === "all" || matchers[group](item, value))).length;
+    chip.replaceChildren(label, el("small", {}, String(count)));
+  }
+}
+
+function renderTiles() {
+  const images = items.filter((i) => i.node.type === "img");
+  const texts = items.length - images.length;
+  const loaded = images.filter((i) => i.load === "ok").length;
+  const corsOk = images.filter((i) => i.cors === "ok").length;
+  const pending = images.some((i) => i.load === "pending" || i.cors === "pending");
+  const noDesc = images.filter((i) => i.noDesc).length;
+  const seg = state.stats.segment;
+  const vision = state.stats.vision;
+  const budget = state.stats.budget;
+  const suffix = pending ? " (확인 중)" : "";
+  const tile = (value, label) => el("div", { class: "tile" }, el("b", {}, String(value)), el("span", {}, label));
+  $("tiles").replaceChildren(
+    tile(texts, "텍스트 노드"),
+    tile(images.length, "이미지 노드"),
+    tile(`${loaded}/${images.length}`, `이미지 로드 성공${suffix}`),
+    tile(`${corsOk}/${images.length}`, `CORS 허용${suffix}`),
+    tile(noDesc, "설명 없는 이미지"),
+    tile(`${seg.splitSources}/${seg.targets}`, `분할된 긴 텍스트 (${seg.mode === "llm" ? "LLM" : "규칙만"})`),
+    tile(vision.vision + vision.cached, `Vision 설명 (새로 ${vision.vision}, 캐시 ${vision.cached}, 제외 ${vision.skipped})`),
+    tile(budget ? `$${budget.spentUsd.toFixed(2)}` : "-", budget ? `누적 비용 / 한도 $${budget.limitUsd}` : "비용 장부 없음"),
+    tile(`${(state.elapsedMs / 1000).toFixed(1)}s`, "처리 시간"),
+    tile(`${(state.stats.bytes / 1024 / 1024).toFixed(1)}MB`, `내려받은 양, 연결 ${state.stats.requests}회`),
+  );
+}
+
+let state = null;
+let refreshScheduled = false;
+function refreshCounts() {
+  if (refreshScheduled) return;
+  refreshScheduled = true;
+  // requestAnimationFrame은 탭이 가려지면 멈춰서 숫자가 갱신되지 않는다.
+  setTimeout(() => {
+    refreshScheduled = false;
+    renderTiles();
+    applyFilters();
+  }, 100);
+}
+
+function render(data) {
+  state = data;
+  for (const key of Object.keys(matchers)) filters[key] = "all";
+  $("search").value = "";
+  const mainFrame = data.finalUrl;
+  items = data.nodes.map((node, index) => buildCard(node, index, mainFrame));
+  $("cards").replaceChildren(...items.map((item) => item.card));
+  renderFilters();
+  renderTiles();
+  applyFilters();
+
+  const { frames, visited, blockedTargets, embedding } = data.stats;
+  const embeddingNote = embedding ? ` · 임베딩 ${embedding.model} (${embedding.dim}차원)` : " · 임베딩 없음";
+  $("meta").textContent = `최종 URL ${data.finalUrl} · 프레임 ${frames}개 · DOM 노드 ${visited}개 방문 · 차단된 연결 ${blockedTargets}건${embeddingNote}`;
+  $("warnings").hidden = data.warnings.length === 0;
+  $("warnings").textContent = `경고: ${data.warnings.join(", ")}`;
+  // 전체 쌍을 펼치면 브라우저가 멈추므로 간선은 앞부분만 보여 준다.
+  const shownWeights = data.response.weights.slice(0, WEIGHT_PREVIEW);
+  const hiddenWeights = data.response.weights.length - shownWeights.length;
+  $("json").textContent = JSON.stringify({ contents: data.response.contents, weights: shownWeights }, null, 2);
+  $("json-note").textContent = hiddenWeights > 0
+    ? `GET /deconstruct가 프론트엔드에 돌려주는 형태입니다. weights ${data.response.weights.length.toLocaleString()}개 중 앞 ${WEIGHT_PREVIEW}개만 표시합니다.`
+    : "GET /deconstruct가 프론트엔드에 돌려주는 형태입니다.";
+  const threshold = renderWeightSummary(data.stats.weights);
+  $("result").hidden = false;
+  graphView.setData(data.nodes, data.response.weights, threshold);
+}
+
+/** 임계값을 바꾸면 남는 간선 수를 보여 준다. 슬라이더의 시작값을 돌려준다. */
+function renderWeightSummary(summary) {
+  const box = $("weight-summary");
+  box.hidden = !summary;
+  if (!summary) return 0.8;
+  const weights = state.response.weights;
+  const count = (threshold) => weights.filter((edge) => edge[2] >= threshold).length;
+  const output = el("b", {});
+  const slider = el("input", { type: "range", min: "0", max: "1", step: "0.01", value: String(summary.p99), "aria-label": "가중치 임계값" });
+  const update = () => {
+    const threshold = Number(slider.value);
+    const kept = count(threshold);
+    output.textContent = `임계값 ${threshold.toFixed(2)} 이상: 간선 ${kept.toLocaleString()}개 (${((kept / weights.length) * 100).toFixed(1)}%)`;
+    graphView.setThreshold(threshold);
+  };
+  slider.addEventListener("input", update);
+  update();
+  box.replaceChildren(
+    output,
+    slider,
+    el("span", {}, `전체 ${summary.edges.toLocaleString()}쌍 · 최소 ${summary.min} · 중앙값 ${summary.p50} · 상위 10% ${summary.p90} · 상위 1% ${summary.p99} · 최대 ${summary.max}`),
+  );
+  return Number(slider.value);
+}
+
+function selectTab(name) {
+  for (const tab of ["cards", "graph", "json"]) {
+    $(`view-${tab}`).hidden = name !== tab;
+    $(`tab-${tab}`).setAttribute("aria-selected", String(name === tab));
+  }
+  graphView.setVisible(name === "graph");
+}
+
+$("tab-cards").addEventListener("click", () => selectTab("cards"));
+$("tab-graph").addEventListener("click", () => selectTab("graph"));
+$("tab-json").addEventListener("click", () => selectTab("json"));
+$("search").addEventListener("input", applyFilters);
+$("form").addEventListener("submit", (event) => {
+  event.preventDefault();
+  analyze($("url").value.trim());
+});
+for (const sample of SAMPLES) {
+  $("samples").append(el("button", {
+    type: "button", class: "link-btn",
+    onclick: () => {
+      $("url").value = sample;
+      analyze(sample);
+    },
+  }, new URL(sample).hostname.replace(/^www\./, "")));
+}
+
+const initial = new URLSearchParams(location.search).get("url");
+if (initial) {
+  $("url").value = initial;
+  analyze(initial);
+}
+</script>
+</body>
+</html>

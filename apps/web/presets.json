@@ -1,0 +1,9 @@
+{
+  "defaultPreset": "blank",
+  "presets": {
+    "blank": {
+      "label": "Blank Frontend",
+      "params": {}
+    }
+  }
+}

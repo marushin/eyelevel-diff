@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f6f7f2">
+  <meta name="description" content="원문 검색에서 뜻밖의 발견까지. Search API의 결과와 재해석 경로를 살펴보는 Query Lab.">
+  <title>Query Lab · 검색의 바깥으로</title>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/styles.css">
+  <script src="/app.js" type="module"></script>
+</head>
+<body>
+  <a class="skip-link" href="#search-query">검색으로 이동</a>
+  <header class="site-header">
+    <a class="brand" href="/" aria-label="Query Lab 홈"><span class="brand-mark" aria-hidden="true">q<span></span></span><span>query<span class="brand-light">lab</span><span class="brand-label">EXPERIMENTAL SEARCH</span></span></a>
+    <a class="docs-link" href="/API_SPEC.html" target="_blank" rel="noopener noreferrer">API 문서 <span aria-hidden="true">↗</span></a>
+  </header>
+
+  <main class="shell">
+    <section class="intro" aria-labelledby="page-title">
+      <div><p class="eyebrow"><span class="live-dot"></span> A LITTLE CURIOSITY GOES A LONG WAY</p><h1 id="page-title">검색의 <span>바깥으로.</span></h1><p class="intro-description">익숙한 질문에서 출발해, 예상하지 못한 연결을 발견하세요.</p></div>
+      <div class="intro-note"><span>01 — ∞</span><p>하나의 검색어,<br>여러 갈래의 가능성.</p></div>
+    </section>
+
+    <div class="workspace">
+      <aside class="search-panel" aria-labelledby="panel-title">
+        <div class="panel-heading"><h2 id="panel-title">탐색 설정</h2><span class="mono">INPUT / 01</span></div>
+        <form id="search-form">
+          <fieldset id="search-fields">
+            <label for="search-query">어디서 시작할까요? <span class="required-dot" aria-label="필수">*</span></label>
+            <div class="query-input-wrap"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 4.5 4.5"/></svg><input id="search-query" name="query" type="search" placeholder="예: 인터랙티브 아트" required autocomplete="off"></div>
+            <div class="suggestions" aria-label="검색어 예시"><button type="button" data-query="인터랙티브 아트">인터랙티브 아트 <span>↗</span></button><button type="button" data-query="도시의 소리">도시의 소리 <span>↗</span></button><button type="button" data-query="기억과 공간">기억과 공간 <span>↗</span></button></div>
+
+            <label for="direction" class="direction-label">재해석 방향 <span class="optional">선택</span></label>
+            <textarea id="direction" name="awesomeDirection" rows="3" placeholder="예: 생물학의 집단행동과 연결해 보기" aria-describedby="direction-help"></textarea>
+            <p class="field-help" id="direction-help">비워두면 분야와 관점을 자유롭게 넘나듭니다.</p>
+
+            <div class="section-divider"><span>결과 개수</span><button id="reset-counts" type="button">기본값으로</button></div>
+            <div class="count-field"><label for="good-count">원문 검색 <span>goodCount</span></label><input id="good-count" name="goodCount" type="number" min="0" max="100" step="1" value="30" required aria-label="원문 검색 문서 수 (0~100)"></div>
+            <div class="count-field"><label for="query-count">새로운 검색어 <span>awesomeQueryCount</span></label><input id="query-count" name="awesomeQueryCount" type="number" min="0" max="20" step="1" value="10" required aria-label="생성 검색어 수 (0~20)"></div>
+            <div class="count-field"><label for="awesome-count">검색어당 문서 <span>awesomeCount</span></label><input id="awesome-count" name="awesomeCount" type="number" min="0" max="100" step="1" value="3" required aria-label="생성 검색어 하나당 문서 수 (0~100)"></div>
+            <p class="estimate" id="estimate">최대 <strong>60</strong>개 문서를 탐색합니다.</p>
+            <button class="search-button" type="submit"><span>탐색 시작</span><span aria-hidden="true">↗</span></button>
+          </fieldset>
+          <button id="cancel-button" type="button" class="cancel-button" hidden>검색 대기 취소</button>
+        </form>
+        <p class="search-note"><span aria-hidden="true">ⓘ</span> 검색은 최대 120초가 소요되며,<br>시간 초과 시 수집된 결과만 표시됩니다.</p>
+        <div class="panel-footer"><span class="live-dot"></span><span>GET /search</span><span class="mono">v0.1</span></div>
+      </aside>
+
+      <section class="explorer" aria-labelledby="explorer-title" aria-busy="false">
+        <div class="explorer-toolbar"><div class="toolbar-title"><span class="small-mark" aria-hidden="true">✳</span><h2 id="explorer-title">발견의 공간</h2></div><span id="status-badge" class="status-badge">탐색 준비</span></div>
+        <div class="status-line" id="status-line" role="status" aria-live="polite">검색어를 입력하고 탐색을 시작하세요.</div>
+
+        <div id="welcome" class="welcome">
+          <div class="orbit-art" aria-hidden="true"><div class="orbit orbit-one"></div><div class="orbit orbit-two"></div><div class="orbit orbit-three"></div><span class="orbit-center">q<span>↗</span></span><span class="orbit-node node-one"></span><span class="orbit-node node-two"></span><span class="orbit-node node-three"></span><span class="orbit-caption caption-one">a familiar thought</span><span class="orbit-caption caption-two">an unexpected connection</span></div>
+          <p class="eyebrow">FOLLOW YOUR CURIOSITY</p><h3>좋은 검색 너머,<br>뜻밖의 발견까지.</h3><p class="welcome-description">원문에 충실한 결과와 새로운 관점의 결과를<br class="desktop-break"> 한 화면에서 비교해 보세요.</p>
+          <div class="explain-grid"><div><span class="step-number">01</span><h4>질문을 던지고</h4><p>궁금한 주제나 떠오른<br>아이디어를 입력하세요.</p></div><div><span class="step-number">02</span><h4>관점을 넓히고</h4><p>AI가 원문에서 점차 멀어지는<br>새로운 검색어를 만듭니다.</p></div><div><span class="step-number">03</span><h4>연결을 발견하세요</h4><p>검색어별 실제 Google 결과를<br>나란히 살펴보세요.</p></div></div>
+        </div>
+
+        <div id="loading" class="loading-state" hidden><span class="loader" aria-hidden="true"></span><p class="eyebrow">EXPLORING POSSIBILITIES</p><h3>새로운 연결을 찾고 있어요.</h3><p>원문 검색과 새로운 관점의 탐색을 진행합니다.</p><span id="elapsed" class="elapsed mono">0초 경과</span><div class="skeleton-grid" aria-hidden="true"><div></div><div></div><div></div></div></div>
+        <div id="error-state" class="error-state" role="alert" hidden><span class="error-icon" aria-hidden="true">!</span><h3>탐색을 완료하지 못했어요.</h3><p id="error-message"></p><p class="field-help">설정을 확인한 뒤 탐색 시작 버튼으로 다시 시도하세요.</p></div>
+
+        <div id="results" hidden>
+          <div class="results-heading"><div><p class="eyebrow">YOUR EXPLORATION</p><h3 id="result-query"></h3></div><button id="copy-request" class="text-button" type="button">요청 URL 복사 <span aria-hidden="true">↗</span></button></div>
+          <div class="result-summary" id="result-summary"></div>
+          <div class="view-tabs" role="tablist" aria-label="결과 보기"><button id="visual-tab" class="view-tab" type="button" role="tab" aria-selected="true" aria-controls="visual-panel" tabindex="0">검색 결과</button><button id="json-tab" class="view-tab" type="button" role="tab" aria-selected="false" aria-controls="json-panel" tabindex="-1">JSON 응답 <span class="mono">{ }</span></button></div>
+          <div id="visual-panel" role="tabpanel" aria-labelledby="visual-tab">
+            <div class="results-columns"><section class="good-column" aria-labelledby="good-title"><div class="column-heading"><div><span class="column-kicker">THE STARTING POINT</span><h4 id="good-title">원문 검색 <span class="api-tag">good</span></h4></div><span id="good-total" class="count-badge">0</span></div><p class="column-description">처음 던진 질문에 충실한 결과</p><div id="good-results" class="document-list"></div></section>
+              <section class="awesome-column" aria-labelledby="awesome-title"><div class="column-heading"><div><span class="column-kicker">BEYOND THE OBVIOUS</span><h4 id="awesome-title">새로운 관점 <span class="api-tag">awesome</span></h4></div><span id="awesome-total" class="count-badge accent">0</span></div><p class="column-description">검색어 순위가 뒤로 갈수록 원문에서 멀어집니다.</p><nav id="query-filters" class="query-filters" aria-label="생성 검색어 필터"></nav><div id="awesome-results"></div></section>
+            </div>
+          </div>
+          <div id="json-panel" role="tabpanel" aria-labelledby="json-tab" hidden><div class="json-toolbar"><span class="mono">application/json · HTTP 200</span><button id="copy-json" class="text-button" type="button">JSON 복사</button></div><pre id="json-output" tabindex="0" aria-label="검색 API 원본 JSON 응답"></pre></div>
+          <p class="result-footnote">검색어 순위는 탐색 순서, 문서의 # 순위는 해당 검색어의 Google 순위입니다. 수집 범위와 시간 제한에 따라 요청한 개수보다 적을 수 있습니다.</p>
+        </div>
+      </section>
+    </div>
+    <footer class="site-footer"><span>QUERY LAB <span class="footer-dot">/</span> AN EXPERIMENT IN DISCOVERY</span><span>Stay curious. Go a little further. <span aria-hidden="true">↗</span></span></footer>
+  </main>
+  <div id="toast" class="toast" role="status" hidden></div>
+</body>
+</html>

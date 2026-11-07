@@ -1,0 +1,26 @@
+{
+  "name": "@akl/deconstruct-api",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch --env-file-if-exists=../../.env src/server.js",
+    "extract": "node --env-file-if-exists=../../.env scripts/extract.js",
+    "test": "node --test --test-concurrency=1 test/*.test.js",
+    "browser:install": "playwright install chromium"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "1.6.0",
+    "@fastify/compress": "9.3.0",
+    "@fastify/cors": "11.4.1",
+    "@huggingface/transformers": "4.3.2",
+    "fastify": "5.12.8",
+    "ipaddr.js": "2.5.0",
+    "playwright": "1.65.0",
+    "sharp": "0.35.5"
+  }
+}

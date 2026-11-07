@@ -1,0 +1,21 @@
+{
+  "name": "@akl/card-stack",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": { "dev": "vite", "build": "vite build" },
+  "dependencies": {
+    "@akl/graph-contract": "workspace:*",
+    "@akl/lab-kit": "workspace:*",
+    "@chenglou/pretext": "catalog:",
+    "tweakpane": "catalog:",
+    "three": "catalog:"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "typescript": "catalog:",
+    "vite": "catalog:",
+    "vitest": "catalog:",
+    "@types/three": "catalog:"
+  }
+}

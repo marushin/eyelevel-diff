@@ -1,0 +1,602 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>README figures</title>
+<!--
+  README 설명 그림의 원본. section.fig 하나가 docs/readme/<id>.png 하나가 된다.
+  렌더링: Playwright, CSS 폭 1000px, deviceScaleFactor 2, section 요소 스크린샷.
+-->
+<style>
+  :root {
+    --blue: #0000ff; --orange: #ff9e4d; --red: #ff0000;
+    --o1: #ff9e4d; --o2: #ffaf66; --o3: #ffc080; --o4: #ffd09a;
+    --serif: "Times New Roman", "Nanum Myeongjo", "AppleMyungjo", serif;
+    --mono: Menlo, "Apple SD Gothic Neo", monospace;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { background: #fff; }
+  body { width: 1000px; }
+  .fig { width: 1000px; padding: 52px 56px 56px; background: #fff; color: #000; font-family: var(--serif); font-size: 17px; line-height: 1.5; word-break: keep-all; margin-bottom: 40px; }
+  .fig h2 { font-size: 30px; font-weight: 400; line-height: 1.25; letter-spacing: -.01em; }
+  .fig .lead { font-size: 18px; margin-top: 6px; }
+  .mono { font-family: var(--mono); font-size: .86em; }
+  .small { font-size: 15px; }
+  .red { color: var(--red); }
+  .blue { color: var(--blue); }
+  .note { font-size: 16px; margin-top: 30px; }
+
+
+  /* photographic matrix and callouts */
+  .matrix.pic td { padding: 12px 10px 16px; vertical-align: top; }
+  .matrix.pic .cell { display: block; width: 100%; border: 1px solid #000; margin-bottom: 8px; }
+  .matrix.pic .shape { font-size: 20px; line-height: 1.2; }
+  .matrix.pic .pos { font-size: 15px; line-height: 1.3; margin-top: 2px; }
+  .shot { position: relative; margin-top: 22px; border: 1px solid #000; line-height: 0; }
+  .shot img { display: block; width: 100%; }
+  .shot i { position: absolute; width: 28px; height: 28px; margin: -14px 0 0 -14px; border-radius: 50%; background: #000; color: #fff; font: 400 17px/28px var(--serif); text-align: center; outline: 2px solid #fff; }
+  .keys { list-style: none; display: grid; grid-template-columns: 1fr 1fr; gap: 10px 26px; margin-top: 22px; }
+  .keys li { display: flex; gap: 10px; font-size: 16px; line-height: 1.35; }
+  .keys b { flex: none; width: 24px; height: 24px; border-radius: 50%; background: #000; color: #fff; font: 400 15px/24px var(--serif); text-align: center; }
+  .keys em { font-style: normal; }
+
+  /* at_a_glance */
+  .flow { display: grid; grid-template-columns: repeat(9, auto); grid-template-columns: 148px 37px 148px 37px 148px 37px 148px 37px 148px; margin-top: 36px; }
+  .flow .step svg { display: block; width: 148px; height: 120px; }
+  .flow .arrow { height: 120px; display: flex; align-items: center; }
+  .flow .arrow svg { width: 37px; height: 12px; display: block; }
+  .flow .no { font-size: 15px; margin-top: 18px; }
+  .flow .name { font-size: 24px; line-height: 1.25; }
+  .flow .say { font-size: 16px; line-height: 1.4; margin-top: 8px; }
+  .loop { margin-top: 26px; }
+  .loop svg { display: block; width: 888px; height: 30px; }
+  .loop .label { text-align: center; font-size: 16px; color: var(--red); margin-top: 6px; }
+
+  /* search_counts */
+  .lane { display: grid; grid-template-columns: 186px 1fr; column-gap: 24px; padding: 26px 0; border-top: 1px solid #000; }
+  .lane:last-of-type { border-bottom: 1px solid #000; }
+  .lane .t { font-size: 24px; line-height: 1.2; }
+  .lane .d { font-size: 15.5px; line-height: 1.4; margin-top: 8px; }
+  .cards { display: flex; gap: 8px; }
+  .card { width: 60px; }
+  .card i { display: block; height: 11px; width: 42px; }
+  .card b { display: block; height: 38px; border: 1px solid #000; }
+  .tag { display: block; font-size: 14px; margin-top: 10px; }
+  .terms { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; }
+  .term .h { font-size: 15.5px; margin-bottom: 8px; }
+  .term .cards { gap: 6px; }
+  .term .card { width: 62px; }
+  .range { display: flex; justify-content: space-between; font-size: 15px; margin-top: 16px; align-items: center; gap: 12px; }
+  .range span:nth-child(2) { flex: 1; border-top: 1px solid #000; position: relative; }
+  .range span:nth-child(2)::after { content: ""; position: absolute; right: 0; top: -4px; border-left: 7px solid #000; border-top: 3.5px solid transparent; border-bottom: 3.5px solid transparent; }
+  .tally { display: grid; grid-template-columns: 1.2fr 1fr 1fr; margin-top: 30px; }
+  .tally > div { padding-right: 20px; }
+  .tally .n { font-size: 58px; line-height: 1; }
+  .tally .l { font-size: 18px; margin-top: 8px; }
+  .tally .f { font-size: 16px; }
+
+  /* views_matrix */
+  table.matrix { width: 100%; border-collapse: collapse; margin-top: 32px; }
+  .matrix th, .matrix td { border: 1px solid #000; padding: 20px 22px; text-align: left; vertical-align: top; font-weight: 400; }
+  .matrix thead th { font-size: 18px; padding: 12px 22px; }
+  .matrix tbody th { width: 176px; font-size: 22px; line-height: 1.25; }
+  .matrix .shape { font-size: 25px; line-height: 1.2; }
+  .matrix .pos { font-size: 16.5px; line-height: 1.42; margin-top: 8px; }
+
+  /* emphasis_scale */
+  .scale { display: grid; grid-template-columns: repeat(5, 1fr); margin-top: 34px; }
+  .scale .word { height: 110px; display: flex; align-items: center; justify-content: center; font-size: 22px; white-space: nowrap; }
+  .scale .bar { height: 118px; position: relative; border-bottom: 1px solid #000; }
+  .scale .bar i { position: absolute; bottom: 0; left: 50%; margin-left: -14px; width: 28px; background: #000; }
+  .scale .vals { text-align: center; font-size: 15.5px; margin-top: 10px; line-height: 1.5; }
+  .scale .vals b { font-weight: 400; font-size: 20px; display: block; }
+  .barwrap { position: relative; }
+  .floor { position: absolute; left: 0; right: 0; border-top: 1px solid var(--red); pointer-events: none; }
+  .floor span { position: absolute; left: 0; top: -24px; color: var(--red); font-size: 15px; background: #fff; }
+  .formula { display: grid; grid-template-columns: 1.55fr 1fr 1fr; column-gap: 22px; margin-top: 30px; border-top: 1px solid #000; padding-top: 20px; }
+  .formula .k { font-size: 15px; }
+  .formula .v { font-size: 20px; margin-top: 2px; white-space: nowrap; }
+  em.m { font-style: italic; }
+
+  /* architecture */
+  .arch { position: relative; width: 888px; height: 556px; margin-top: 30px; }
+  .arch > svg { position: absolute; inset: 0; width: 888px; height: 556px; }
+  .node { position: absolute; border: 1px solid #000; background: #fff; padding: 12px 14px; font-size: 15px; line-height: 1.38; }
+  .node h3 { font-size: 20px; font-weight: 400; line-height: 1.2; }
+  .node .mono { display: block; font-size: 12.5px; line-height: 1.55; }
+  .node.ext { border-color: #000; padding-top: 22px; }
+  .node.ext::before { content: "외부 유료 API"; position: absolute; left: -1px; top: -1px; background: var(--orange); font-size: 12.5px; line-height: 1.3; padding: 1px 8px; }
+  .node .part + .part { border-top: 1px solid #000; margin-top: 10px; padding-top: 10px; }
+  .node .route { color: var(--blue); }
+
+  /* pipeline */
+  .pipe { margin-top: 28px; }
+  .prow { display: grid; grid-template-columns: 44px 158px 1fr 232px; column-gap: 12px; align-items: start; padding: 15px 0; border-top: 1px solid #000; }
+  .prow .n { font-size: 26px; line-height: 1.1; }
+  .prow .name { font-size: 21px; line-height: 1.22; }
+  .prow .desc { font-size: 16px; line-height: 1.4; }
+  .chip { font-size: 13px; line-height: 1.45; padding: 3px 8px; border: 1px solid #000; font-family: var(--mono); display: block; word-break: break-word; }
+  .chip.claude { background: var(--orange); }
+  .out { border: 1px solid #000; border-top: 5px solid var(--blue); padding: 14px 18px; display: grid; grid-template-columns: 158px 1fr; column-gap: 12px; align-items: baseline; }
+  .out .mono { font-size: 14px; }
+
+  /* run_steps */
+  .rrow { display: grid; grid-template-columns: 36px 238px 1fr; column-gap: 12px; align-items: start; padding: 17px 0; border-top: 1px solid #000; }
+  .rrow .n { font-size: 26px; line-height: 1.1; }
+  .rrow .name { font-size: 20px; line-height: 1.3; }
+  .cmd { font-family: var(--mono); font-size: 16px; line-height: 1.5; border: 1px solid #000; padding: 7px 12px; display: block; }
+  .cmd + .after, .after { font-size: 15.5px; margin-top: 7px; }
+  .cmds { display: flex; flex-wrap: wrap; gap: 8px; }
+  .cmds .cmd { flex: 0 0 auto; }
+  .blueline { border-top: 5px solid var(--blue) !important; }
+  code.i { font-family: var(--mono); font-size: 14px; }
+
+  /* repo_structure */
+  .tree { margin-top: 28px; }
+  .trow { display: grid; grid-template-columns: 300px 1fr; column-gap: 20px; padding: 13px 0; border-top: 1px solid #000; align-items: baseline; }
+  .trow:last-child { border-bottom: 1px solid #000; }
+  .trow .p { font-family: var(--mono); font-size: 16px; }
+  .trow .p .dim { color: #000; opacity: .45; }
+  .trow .w { font-size: 17px; line-height: 1.42; }
+
+  /* limits */
+  .cols { display: grid; grid-template-columns: 1fr 1.45fr; column-gap: 44px; margin-top: 30px; }
+  .cols h3 { font-size: 22px; font-weight: 400; border-top: 5px solid var(--red); padding-top: 10px; }
+  .cols h3.b { border-top-color: #000; }
+  .cols ul { list-style: none; margin-top: 12px; }
+  .cols li { font-size: 16.5px; line-height: 1.42; padding: 11px 0; border-top: 1px solid #000; }
+  .cols li:first-child { border-top: 0; }
+</style>
+</head>
+<body>
+
+<!-- ───────────── at_a_glance ───────────── -->
+<section class="fig" id="at_a_glance">
+  <h2>검색어 하나에서 다시 검색까지</h2>
+  <div class="flow">
+    <div class="step">
+      <svg viewBox="0 0 148 120" font-family="Times New Roman, Nanum Myeongjo, AppleMyungjo, serif">
+        <text x="0" y="46" font-size="15">검색어:</text>
+        <rect x=".5" y="56" width="147" height="38" fill="#fff" stroke="#000"/>
+        <text x="10" y="82" font-size="20">고양이</text>
+        <line x1="72" y1="63" x2="72" y2="87" stroke="#0000ff"/>
+      </svg>
+      <div class="no">1</div><div class="name">검색어</div>
+      <div class="say">한 줄을 입력한다</div>
+    </div>
+    <div class="arrow"><svg viewBox="0 0 37 12"><path d="M6 6H30M25 2l6 4-6 4" fill="none" stroke="#000"/></svg></div>
+    <div class="step">
+      <svg viewBox="0 0 148 120">
+        <g stroke="#000">
+          <g><rect x="74" y="4" width="26" height="6" fill="#0000ff" stroke="none"/><rect x="74.5" y="10.5" width="42" height="27" fill="#fff"/></g>
+          <g><rect x="52" y="30" width="26" height="6" fill="#0000ff" stroke="none"/><rect x="52.5" y="36.5" width="42" height="27" fill="#fff"/></g>
+          <g><rect x="30" y="56" width="26" height="6" fill="#0000ff" stroke="none"/><rect x="30.5" y="62.5" width="42" height="27" fill="#fff"/></g>
+          <g><rect x="8" y="82" width="26" height="6" fill="#0000ff" stroke="none"/><rect x="8.5" y="88.5" width="42" height="27" fill="#fff"/></g>
+          <g><rect x="110" y="44" width="26" height="6" fill="#ff9e4d" stroke="none"/><rect x="105.5" y="50.5" width="42" height="27" fill="#fff"/></g>
+          <g><rect x="92" y="86" width="26" height="6" fill="#ffc080" stroke="none"/><rect x="87.5" y="92.5" width="42" height="27" fill="#fff"/></g>
+        </g>
+        <path d="M95 30L110 45M72 72L92 88" fill="none" stroke="#ff0000"/>
+      </svg>
+      <div class="no">2</div><div class="name">카드 스택</div>
+      <div class="say">그대로 찾은 결과와 비틀어 찾은 결과</div>
+    </div>
+    <div class="arrow"><svg viewBox="0 0 37 12"><path d="M6 6H30M25 2l6 4-6 4" fill="none" stroke="#000"/></svg></div>
+    <div class="step">
+      <svg viewBox="0 0 148 120" font-family="Times New Roman, Nanum Myeongjo, AppleMyungjo, serif">
+        <rect x=".5" y="10.5" width="147" height="102" fill="#fff" stroke="#000"/>
+        <line x1="1" y1="32.5" x2="147" y2="32.5" stroke="#000"/>
+        <text x="9" y="27" font-size="14">← → ↻</text>
+        <g stroke="#000"><path d="M12 48H110M12 60H134M12 72H126M12 84H90M12 96H118" fill="none"/></g>
+      </svg>
+      <div class="no">3</div><div class="name">원문 미리보기</div>
+      <div class="say">카드를 고르면 실제 페이지가 그 자리에서 열린다</div>
+    </div>
+    <div class="arrow"><svg viewBox="0 0 37 12"><path d="M6 6H30M25 2l6 4-6 4" fill="none" stroke="#000"/></svg></div>
+    <div class="step">
+      <svg viewBox="0 0 148 120" font-family="Times New Roman, Nanum Myeongjo, AppleMyungjo, serif">
+        <path d="M58 54L30 76M84 54L98 66M110 92L120 102" fill="none" stroke="#ff0000" stroke-width=".8"/>
+        <text x="40" y="48" font-size="30">문장</text>
+        <text x="110" y="24" font-size="16" opacity=".55">단어</text>
+        <text x="2" y="24" font-size="13" opacity=".3">구절</text>
+        <text x="80" y="88" font-size="22" opacity=".8">이미지</text>
+        <text x="6" y="96" font-size="18" opacity=".6">조각</text>
+        <text x="112" y="116" font-size="13" opacity=".25">문단</text>
+        <text x="48" y="116" font-size="15" opacity=".42">제목</text>
+      </svg>
+      <div class="no">4</div><div class="name">분해</div>
+      <div class="say">페이지가 글과 이미지 조각으로 흩어진다</div>
+    </div>
+    <div class="arrow"><svg viewBox="0 0 37 12"><path d="M6 6H30M25 2l6 4-6 4" fill="none" stroke="#000"/></svg></div>
+    <div class="step">
+      <svg viewBox="0 0 148 120" font-family="Times New Roman, Nanum Myeongjo, AppleMyungjo, serif">
+        <text x="0" y="44" font-size="30" fill="#ff0000">문장</text>
+        <rect x=".5" y="60.5" width="147" height="34" fill="#fff" stroke="#000"/>
+        <text x="74" y="83" font-size="14" text-anchor="middle">이 조각으로 다시 검색</text>
+      </svg>
+      <div class="no">5</div><div class="name">다시 검색</div>
+      <div class="say">고른 조각이 새 검색어가 된다</div>
+    </div>
+  </div>
+  <div class="loop">
+    <svg viewBox="0 0 888 30"><path d="M814 0V22.5H74V6M70 11l4-7 4 7" fill="none" stroke="#ff0000"/></svg>
+    <div class="label">새 검색으로 처음부터. 이전 카드는 지워진다.</div>
+  </div>
+</section>
+
+<!-- ───────────── search_counts ───────────── -->
+<section class="fig" id="search_counts">
+  <h2>한 번의 검색이 부르는 것</h2>
+  <p class="lead" style="margin-bottom:28px">화면에서 “고양이”를 검색하면 두 갈래로 나뉜다.</p>
+
+  <div class="lane">
+    <div>
+      <div class="t blue">good</div>
+      <div class="d">검색어 그대로 Google 검색<br><span class="mono">goodCount=10</span></div>
+    </div>
+    <div>
+      <div class="cards" id="goodCards"></div>
+      <span class="tag">카드 표시 <span class="mono">aligned</span> · 결과 10개</span>
+    </div>
+  </div>
+
+  <div class="lane">
+    <div>
+      <div class="t" style="color:#000">awesome</div>
+      <div class="d">LLM이 새 검색어 4개를 만들고, 각각 Google 검색<br><span class="mono">awesomeQueryCount=4</span><br><span class="mono">awesomeCount=2</span></div>
+    </div>
+    <div>
+      <div class="terms" id="terms"></div>
+      <div class="range"><span>01 비교적 가깝지만 새로운 각도</span><span></span><span>04 거의 다른 주제</span></div>
+    </div>
+  </div>
+
+  <div class="tally">
+    <div><div class="n">18</div><div class="l">카드 최대</div><div class="f">10 + 4 × 2</div></div>
+    <div><div class="n">1</div><div class="l">LLM 호출</div><div class="f">검색어 생성 한 번</div></div>
+    <div><div class="n">5</div><div class="l">SerpApi 호출 최대</div><div class="f">1 + 4</div></div>
+  </div>
+</section>
+
+<!-- ───────────── views_matrix ───────────── -->
+<section class="fig" id="views_matrix">
+  <h2>세 가지 보기, 평면과 입체</h2>
+  <p class="lead">같은 조각 500개를 여섯 가지로 놓은 실제 화면. 3D 버튼은 지금 보기를 오른쪽 칸으로 바꾼다.</p>
+  <table class="matrix pic">
+    <thead><tr><th></th><th>2D</th><th>3D</th></tr></thead>
+    <tbody>
+      <tr>
+        <th>읽는 순서</th>
+        <td><img class="cell" src="raw/m_reading.jpg" alt=""><div class="shape">세로 단</div><div class="pos">문서 순서대로 단을 따라</div></td>
+        <td><img class="cell" src="raw/m_helix.jpg" alt=""><div class="shape">나선</div><div class="pos">같은 순서로 감겨 내려감</div></td>
+      </tr>
+      <tr>
+        <th>상호 유사도</th>
+        <td><img class="cell" src="raw/m_meaning.jpg" alt=""><div class="shape">스프링</div><div class="pos">가까운 4개와 당겨져 모임</div></td>
+        <td><img class="cell" src="raw/m_cloud.jpg" alt=""><div class="shape">구름</div><div class="pos">같은 인력을 3차원으로</div></td>
+      </tr>
+      <tr>
+        <th>검색어 유사도</th>
+        <td><img class="cell" src="raw/m_orbit.jpg" alt=""><div class="shape">궤도</div><div class="pos">가운데에 가까울수록 비슷함</div></td>
+        <td><img class="cell" src="raw/m_sphere.jpg" alt=""><div class="shape">구체</div><div class="pos">가운데까지 거리가 곧 유사도</div></td>
+      </tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- ───────────── overview_callouts ───────────── -->
+<section class="fig" id="overview_callouts">
+  <h2>카드 스택 읽는 법</h2>
+  <div class="shot"><img src="raw/overview.jpg" alt="">
+    <i style="left:5%;top:60.5%">1</i><i style="left:13%;top:34.8%">2</i><i style="left:62%;top:62.5%">3</i><i style="left:78%;top:13%">4</i><i style="left:72%;top:5.8%">5</i><i style="left:7%;top:93.6%">6</i><i style="left:14%;top:8.4%">7</i>
+  </div>
+  <ol class="keys">
+    <li><b>1</b><span>파란 탭 <em>aligned</em>: good 결과. 대각선 줄기를 이룬다</span></li>
+    <li><b>2</b><span>주황 탭 <em>01–04 skewed</em>: awesome 결과. 숫자는 검색어 순위</span></li>
+    <li><b>3</b><span>빨간 화살표: good에서 awesome으로 그린 규칙. 실제 하이퍼링크가 아니다</span></li>
+    <li><b>4</b><span>history 띠: 나타난 카드가 최신순으로. 누르면 그 카드의 미리보기</span></li>
+    <li><b>5</b><span>삼각형: 검색어 기록. 누르면 그 스택으로 카메라만 옮긴다</span></li>
+    <li><b>6</b><span>둥근 버튼: 모두 지우고 첫 화면으로</span></li>
+    <li><b>7</b><span>범례: 검색어 연관 1–4순위, 멀수록 옅은 주황</span></li>
+  </ol>
+</section>
+
+<!-- ───────────── focus_callouts ───────────── -->
+<section class="fig" id="focus_callouts">
+  <h2>조각 하나를 고르면</h2>
+  <div class="shot"><img src="raw/focus.jpg" alt="">
+    <i style="left:67.5%;top:42.5%">1</i><i style="left:23.5%;top:69.7%">2</i><i style="left:4.2%;top:74.4%">3</i><i style="left:35%;top:74.4%">4</i><i style="left:39.2%;top:87%">5</i>
+  </div>
+  <ol class="keys">
+    <li><b>1</b><span>고른 글은 빨갛게, 나머지는 흐리게. 빨간 선은 가까운 조각 최대 5개</span></li>
+    <li><b>2</b><span>입력한 검색어와의 원래 유사도</span></li>
+    <li><b>3</b><span>이 조각으로 다시 검색: 새 최초 검색. 이전 카드는 지워진다</span></li>
+    <li><b>4</b><span>더 잘게 분해: Haiku가 원문 안의 구절로 나눈다. 합치기로 되돌린다</span></li>
+    <li><b>5</b><span>가까운 조각: 가중치가 높은 순. 누르면 초점을 옮긴다</span></li>
+  </ol>
+</section>
+
+<!-- ───────────── emphasis_scale ───────────── -->
+<section class="fig" id="emphasis_scale">
+  <h2>유사도가 높을수록 진하고 크게</h2>
+  <p class="lead">같은 단어를 실제 CSS 값으로 놓았다. 기본 글자 크기 22px.</p>
+  <div class="scale" id="scaleWords"></div>
+  <div class="barwrap">
+    <div class="scale" id="scaleBars" style="margin-top:6px"></div>
+    <div class="floor" id="floor"><span>바닥 0.14, 사라지지 않는다</span></div>
+  </div>
+  <div class="scale" id="scaleVals" style="margin-top:0"></div>
+  <div class="formula">
+    <div><div class="k">페이지 안 5% 지점이 low, 95% 지점이 high</div><div class="v"><em class="m">t</em> = clamp((<em class="m">v</em> − low) / (high − low), 0, 1)</div></div>
+    <div><div class="k">불투명도</div><div class="v">0.14 + 0.86 <em class="m">t</em></div></div>
+    <div><div class="k">크기 배율</div><div class="v">0.72 + <em class="m">t</em></div></div>
+  </div>
+</section>
+
+<!-- ───────────── architecture ───────────── -->
+<section class="fig" id="architecture">
+  <h2>어떤 요청이 어디로 가는가</h2>
+  <div class="arch">
+    <svg viewBox="0 0 888 556" fill="none" stroke="#000">
+      <defs><marker id="ah" viewBox="0 0 8 8" refX="7.5" refY="4" markerWidth="8" markerHeight="8" orient="auto"><path d="M1 1L7.5 4L1 7" fill="none" stroke="#000"/></marker></defs>
+      <g marker-end="url(#ah)">
+        <path d="M142 278H176"/>
+        <path d="M356 240L418 150"/>
+        <path d="M356 316L418 408"/>
+        <path d="M618 96L676 58"/>
+        <path d="M618 140L676 168"/>
+        <path d="M618 190L676 262"/>
+        <path d="M618 372L676 292"/>
+        <path d="M618 418L676 390"/>
+        <path d="M618 462L676 498"/>
+      </g>
+    </svg>
+    <div class="node" style="left:0;top:204px;width:142px;height:148px">
+      <h3>브라우저</h3><span class="mono">apps/web</span>
+      <div style="margin-top:8px">카드 스택, 미리보기 캔버스, 분해 보기</div>
+    </div>
+    <div class="node" style="left:176px;top:166px;width:180px;height:224px">
+      <div class="part"><h3>개발</h3><span class="mono">pnpm dev</span><div style="margin-top:4px">Vite <span class="mono" style="display:inline">127.0.0.1:5173</span>이 두 서버로 나눠 보낸다</div></div>
+      <div class="part"><h3>배포</h3><span class="mono">pnpm start</span><div style="margin-top:4px">서버 하나가 <span class="mono" style="display:inline">dist</span>까지 제공한다</div></div>
+    </div>
+    <div class="node" style="left:418px;top:24px;width:200px;height:196px">
+      <h3>apps/api</h3><span class="mono">:3000</span>
+      <div style="margin-top:10px"><span class="mono route">/search</span><div style="margin-bottom:6px">두 갈래 검색</div><span class="mono route">/preview</span><span class="mono route">/preview-ws</span><div>원문 미리보기</div></div>
+    </div>
+    <div class="node" style="left:418px;top:306px;width:200px;height:230px">
+      <h3>apps/deconstruct</h3><span class="mono">127.0.0.1:3001</span>
+      <div style="margin-top:10px"><span class="mono route">/deconstruct</span><div style="margin-bottom:6px">페이지 분해</div><span class="mono route">/deconstruct/phrases</span><div>더 잘게 분해</div></div>
+      <div style="margin-top:8px" class="small">배포에서도 127.0.0.1에만 열린다</div>
+    </div>
+    <div class="node ext" style="left:676px;top:16px;width:212px;height:96px"><h3>SerpApi</h3><div>Google 검색 결과</div></div>
+    <div class="node" style="left:676px;top:124px;width:212px;height:96px;padding-top:14px"><h3>시스템 Chrome</h3><div>원격 브라우저, 화면은 JPEG로 전송</div></div>
+    <div class="node ext" style="left:676px;top:232px;width:212px;height:96px"><h3>Claude</h3><div>검색어 생성, 문장 분할, 이미지 설명, 구절 나누기</div></div>
+    <div class="node" style="left:676px;top:340px;width:212px;height:96px;padding-top:14px"><h3>Playwright Chromium</h3><div>egress proxy를 거쳐 페이지 추출</div></div>
+    <div class="node" style="left:676px;top:448px;width:212px;height:96px;padding-top:14px"><h3>Xenova/bge-m3</h3><div>이 컴퓨터에서 임베딩</div></div>
+  </div>
+  <p class="note" style="margin-top:14px">배포에서는 프록시가 <span class="mono">GET /deconstruct</span>, <span class="mono">GET /deconstruct/phrases</span>만 통과시킨다. 분해 서비스가 꺼지거나 실패해도 검색은 계속 동작한다. 검색 LLM은 <span class="mono">LLM_PROVIDER=openai</span>로 바꿀 수 있다.</p>
+</section>
+
+<!-- ───────────── pipeline ───────────── -->
+<section class="fig" id="pipeline">
+  <h2>분해 파이프라인</h2>
+  <p class="lead">URL 하나가 조각과 가중치가 되기까지, 실제 순서.</p>
+  <div class="pipe">
+    <div class="prow"><div class="n">1</div><div class="name">추출</div><div class="desc">페이지를 열고 스크롤해 글과 이미지를 모은다. 최대 500개.</div><div><span class="chip">Playwright Chromium<br>egress proxy 경유</span></div></div>
+    <div class="prow"><div class="n">2</div><div class="name">문장 나누기</div><div class="desc">60자 넘는 글의 경계만 받아 서버가 자른다. 원문 밖 글자는 나올 수 없다.</div><div><span class="chip claude">claude-opus-5-5</span><span class="small" style="display:block;margin-top:4px">실패하면 규칙으로 분할</span></div></div>
+    <div class="prow"><div class="n">3</div><div class="name">이미지 설명</div><div class="desc"><span class="mono">alt</span>와 캡션을 먼저 쓰고, 없으면 큰 이미지부터 페이지당 최대 12장, 512px로 줄여 본다.</div><div><span class="chip claude">claude-opus-5-5 Vision</span></div></div>
+    <div class="prow"><div class="n">4</div><div class="name">임베딩</div><div class="desc">모든 조각을 1024차원 벡터로 바꾼다.</div><div><span class="chip">Xenova/bge-m3<br>로컬, q8</span></div></div>
+    <div class="prow"><div class="n">5</div><div class="name">가중치</div><div class="desc">모든 쌍(<em class="m">i</em> &lt; <em class="m">j</em>)에 대해 <em class="m">w</em> = (1 + cos) / 2, 소수 넷째 자리.</div><div><span class="chip">서버 계산</span></div></div>
+    <div class="prow"><div class="n">6</div><div class="name">검색어 유사도</div><div class="desc">검색어가 있을 때만, 같은 척도로 계산한다.</div><div><span class="chip">서버 계산</span></div></div>
+    <div class="out"><div style="font-size:21px">응답</div><div class="mono">{ contents, weights, querySimilarities? }</div></div>
+  </div>
+  <p class="note">페이지당 약 $0.01~0.05, 8~21초(문서 기록). <span style="background:var(--orange);padding:0 6px;margin-right:2px">주황</span>은 유료 Claude 호출이다.</p>
+</section>
+
+<!-- ───────────── run_steps ───────────── -->
+<section class="fig" id="run_steps">
+  <h2>실행하기</h2>
+  <p class="lead" style="margin-bottom:26px">Node ≥ 22.9.0, pnpm 11.25.0</p>
+  <div class="rrow"><div class="n">1</div><div class="name">의존성 설치</div><div><code class="cmd">pnpm install</code></div></div>
+  <div class="rrow"><div class="n">2</div><div class="name">분해용 Chromium 설치<br><span class="small">한 번만</span></div><div><code class="cmd">pnpm setup:deconstruct</code></div></div>
+  <div class="rrow"><div class="n">3</div><div class="name">환경 변수 파일 만들기</div><div><code class="cmd">cp .env.example .env</code><div class="after">채울 값: <code class="i">SERPAPI_API_KEY</code>, 그리고 고른 LLM의 키</div></div></div>
+  <div class="rrow"><div class="n">4</div><div class="name">개발 서버 실행</div><div><code class="cmd blueline">pnpm dev</code><div class="after">웹 <code class="i">127.0.0.1:5173</code>, 검색 API <code class="i">:3000</code>, 분해 API <code class="i">:3001</code></div></div></div>
+  <div class="rrow"><div class="n"></div><div class="name">배포 모드로 한 서버에서</div><div><div class="cmds"><code class="cmd">pnpm build</code><code class="cmd">pnpm start</code></div><div class="after"><code class="i">localhost:3000</code>. 외부 배포는 포함되어 있지 않다.</div></div></div>
+  <div class="rrow"><div class="n"></div><div class="name">테스트<br><span class="small">외부 API를 대체해 비용 없음</span></div><div><div class="cmds"><code class="cmd">pnpm check</code><code class="cmd">pnpm test</code><code class="cmd">pnpm build</code><code class="cmd">pnpm test:deconstruct</code></div></div></div>
+  <div class="rrow" style="border-bottom:1px solid #000"><div class="n red">!</div><div class="name">분해 비용 없이 화면 작업</div><div><div class="cmds"><code class="cmd">SEGMENT_MODE=rule</code><code class="cmd">VISION_MAX_PER_PAGE=0</code></div><div class="after">검색은 그래도 유료 API를 부른다.</div></div></div>
+</section>
+
+<!-- ───────────── repo_structure ───────────── -->
+<section class="fig" id="repo_structure">
+  <h2>폴더 구조</h2>
+  <div class="tree">
+    <div class="trow"><div class="p">apps/api</div><div class="w">검색, LLM, 미리보기, 원격 브라우저 서버</div></div>
+    <div class="trow"><div class="p">apps/deconstruct</div><div class="w">Fastify 분해 서버: 추출, 분할, 이미지 설명, 임베딩, 그래프, 구절 분해, 보안, 사용량, 뷰어</div></div>
+    <div class="trow"><div class="p">apps/web</div><div class="w">카드 스택과 분해 보기 화면 (three CSS3DRenderer)</div></div>
+    <div class="trow"><div class="p">packages/graph-contract</div><div class="w">공용 그래프 계약과 시뮬레이터</div></div>
+    <div class="trow"><div class="p">packages/lab-kit</div><div class="w">실험 패널과 공용 도구</div></div>
+    <div class="trow"><div class="p">scripts</div><div class="w">dev, start, config, deconstruct 실행 스크립트</div></div>
+    <div class="trow"><div class="p">tests</div><div class="w">production, search-integration 테스트</div></div>
+    <div class="trow"><div class="p">docs/readme</div><div class="w">이 README의 그림과 영상, 그림 원본</div></div>
+  </div>
+</section>
+
+<!-- ───────────── limits ───────────── -->
+<section class="fig" id="limits">
+  <h2>한계와 확인하지 못한 것</h2>
+  <div class="cols">
+    <div>
+      <h3>마지막 기록까지 확인하지 못함</h3>
+      <ul>
+        <li>실제 Haiku 구절이 화면에 나오는 모습</li>
+        <li>실제 검색 카드에서 시작한 분해</li>
+        <li>실제 터치 입력</li>
+        <li>다른 PC에서 새로 설치</li>
+      </ul>
+    </div>
+    <div>
+      <h3 class="b">알려진 한계</h3>
+      <ul>
+        <li>요청 제한이 없다. 공개 터널을 열면 누구나 유료 분해를 호출할 수 있다.</li>
+        <li>검색 기록은 메모리에만 있어, 새로고침하면 사라진다.</li>
+        <li>canvas와 WebGL 내용, 인라인 SVG, <span class="mono">::before</span> 글자, <span class="mono">select</span>, <span class="mono">textarea</span>, <span class="mono">placeholder</span>, <span class="mono">aria-label</span>은 추출하지 않는다.</li>
+        <li>눌러야 보이는 내용과 안쪽 스크롤의 지연 로딩은 깨우지 않는다.</li>
+        <li>200으로 응답한 CAPTCHA 페이지도 내용으로 추출된다.</li>
+        <li>조각 수는 실행마다 달라진다.</li>
+        <li>이미지는 픽셀이 아니라 설명 글로 비교한다. 설명 없는 이미지가 이웃하면 근거 없이 높은 가중치를 받을 수 있다.</li>
+        <li>링크 따라가기는 구현되어 있지 않다. <span class="red">붉은 화살표</span>도 실제 하이퍼링크가 아니다.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- 작업 과정: 회의 길이는 녹음 파일 길이(초), 갈래는 팀 회의 기록의 집계 -->
+<style>
+  .ptl { margin-top: 26px; }
+  .ptl h3 { font-size: 18px; font-weight: 400; margin: 22px 0 8px; }
+  .ptl .row { display: grid; grid-template-columns: 44px 330px 1fr; gap: 12px; align-items: baseline; padding: 4px 0; border-top: 1px solid #000; font-size: 15.5px; }
+  .ptl .no { font-family: var(--mono); font-size: 13px; }
+  .ptl .track { display: flex; align-items: center; gap: 8px; align-self: center; font-family: var(--mono); font-size: 12px; white-space: nowrap; }
+  .ptl .track i { display: block; height: 11px; background: #0000ff; }
+  .ptl .turn { color: var(--red); }
+  .ptl .night { display: grid; grid-template-columns: repeat(6, 1fr); border-top: 1px solid #000; margin-top: 2px; }
+  .ptl .night div { padding: 8px 8px 0 0; font-size: 14px; line-height: 1.35; }
+  .ptl .night b { display: block; font-family: var(--mono); font-size: 12.5px; font-weight: 400; color: var(--red); }
+  .pcmp { display: grid; grid-template-columns: 112px 1fr 1fr 1fr; margin-top: 26px; font-size: 16px; line-height: 1.42; }
+  .pcmp > div { padding: 10px 12px 12px 0; border-top: 1px solid #000; }
+  .pcmp .h { font-family: var(--mono); font-size: 13px; }
+  .pcmp .last { color: var(--blue); }
+  .pgrid { margin-top: 24px; font-size: 14.5px; }
+  .pgrid .gr { display: grid; grid-template-columns: 232px repeat(11, 30px) 1fr; align-items: center; border-top: 1px solid #ddd; min-height: 25px; }
+  .pgrid .gr.first { border-top: 1px solid #000; }
+  .pgrid .gh { font-family: var(--mono); font-size: 10.5px; text-align: center; }
+  .pgrid .gr > span { text-align: center; align-self: stretch; display: flex; align-items: center; justify-content: center; }
+  .pgrid .gr > span.t { justify-content: flex-start; }
+  .pgrid .gr > span.to { justify-content: flex-start; padding-left: 10px; font-size: 13.5px; }
+  .pgrid .d { display: inline-block; width: 12px; height: 12px; border-radius: 50%; vertical-align: -1px; }
+  .pgrid .sep { box-shadow: inset 1px 0 0 #000; }
+  .plegend { display: flex; gap: 20px; margin-top: 18px; font-size: 14.5px; }
+  .plegend .d { display: inline-block; width: 12px; height: 12px; border-radius: 50%; margin-right: 6px; vertical-align: -1px; }
+</style>
+
+<section class="fig" id="process_timeline">
+  <h2>회의 녹음 11개, 14시간 46분</h2>
+  <div class="lead">막대는 녹음 길이입니다. <span class="red">붉은 글자</span>는 그 회의에서 일어난 변곡점입니다.</div>
+  <div class="ptl" id="ptl"></div>
+</section>
+
+<section class="fig" id="process_shift">
+  <h2>무엇이 어떻게 바뀌었나</h2>
+  <div class="pcmp" id="pcmp"></div>
+</section>
+
+<section class="fig" id="process_threads">
+  <h2>아이디어 갈래 23개</h2>
+  <div class="lead">어느 회의에서 나왔고 어디로 갔는지입니다.</div>
+  <div class="plegend">
+    <span><i class="d" style="background:#0000ff"></i>최종 핵심 4</span>
+    <span><i class="d" style="background:#ff9e4d"></i>방식·표현으로 반영 5</span>
+    <span><i class="d" style="background:#a8a8a8"></i>보류 13</span>
+    <span><i class="d" style="background:#ff0000"></i>제외 1</span>
+  </div>
+  <div class="pgrid" id="pgrid"></div>
+</section>
+
+<script>
+  // process_timeline
+  const fmtLen = (s) => { const h = Math.floor(s / 3600), m = Math.round(s % 3600 / 60); return h ? `${h}시간 ${m}분` : `${m}분`; };
+  const meetingRow = (m) => `<div class="row"><span class="no">${m.no}</span><span>${m.what}${m.turn ? ` <span class="turn">${m.turn}</span>` : ''}</span><span class="track"><i style="width:${Math.round(m.sec / 9514 * 330)}px"></i>${fmtLen(m.sec)}</span></div>`;
+  const day1 = [
+    { no: '01', sec: 4793, what: '취미로 자기소개, 공통분모 찾기' },
+    { no: '02', sec: 4270, what: '발제와 진행 방식 토론', turn: '입장 차이' },
+    { no: '03', sec: 2617, what: '자유 토론, 보간 너머' },
+    { no: '04', sec: 3437, what: 'jev 그래프, 주제 문장 해부', turn: '핵심 등장' },
+    { no: '05', sec: 914, what: '벗어남과 찾아감, 정리 방식 논의' },
+    { no: '06', sec: 300, what: '너무 빨리 정리하지 말자', turn: '속도 조절' },
+    { no: '07', sec: 7965, what: '경험 구조, jev와 사람의 대비', turn: '수렴' },
+  ];
+  const day2 = [
+    { no: '2-1', sec: 3272, what: '시안 공유, 순위 역순 제안', turn: '방향 전환' },
+    { no: '2-2', sec: 8250, what: '재귀 구조, 크릿, 페이지 해체', turn: '구조 합의' },
+    { no: '2-3', sec: 9514, what: '분해 스키마, 튀지 않는 결과', turn: '구현과 통합' },
+    { no: '2-4', sec: 7852, what: '통합 순서, 분해의 의미', turn: '첫 데모' },
+  ];
+  const nightly = [
+    ['21:45', '검색과 화면 첫 통합'], ['23:32', 'PR 1, 2<br>씬과 재해석 방향'], ['00:00', 'PR 3<br>원격 브라우저'],
+    ['00:57', 'PR 4<br>카드 라벨'], ['01:15', 'PR 6<br>분해'], ['01:19', 'PR 5<br>히스토리 레일'],
+  ];
+  document.getElementById('ptl').innerHTML =
+    `<h3>Day 1 · 11월 5일 · 6시간 45분</h3>${day1.map(meetingRow).join('')}` +
+    `<h3>Day 2 · 11월 6일 · 8시간 1분</h3>${day2.map(meetingRow).join('')}` +
+    `<h3>Day 2 밤부터 Day 3 새벽 · 합친 순서</h3><div class="night">${nightly.map(([t, w]) => `<div><b>${t}</b>${w}</div>`).join('')}</div>`;
+
+  // process_shift
+  const shift = [
+    ['벗어나는 방법', 'jev가 달리는 평균의 길 옆을 사람이 직접 걷기', '검색 순위를 뒤집어 뒤쪽 결과로 들어가기', 'LLM이 검색어를 네 단계로 재해석해 곁에 붙이기'],
+    ['노드', '미정. 유튜브, 음악, 고전 텍스트 후보', '검색 결과 사이트, 그 안의 글과 이미지 조각', '3D 카드, 열면 실제 페이지, 분해하면 글과 이미지 조각'],
+    ['jev', '작품의 주인공, 추천 엔진의 상징', '결과를 고르는 규칙 중 하나', '쓰지 않음'],
+    ['사람', 'jev와 같은 선택지에서 고르기', '튀는 결과를 누르고, 조각을 골라 다음 검색으로', '카드를 열고, 분해할지 이어 검색할지, 어느 조각을 고를지 정하기'],
+    ['루프', '없음. 둘이 나란히 달림', '결과가 다시 검색어가 됨', '카드 제목은 이어가기, 조각은 새 최초 검색어'],
+  ];
+  document.getElementById('pcmp').innerHTML =
+    '<div class="h"></div><div class="h">Day 1</div><div class="h">Day 2 오후</div><div class="h last">최종</div>' +
+    shift.map(([k, a, b, c]) => `<div class="h">${k}</div><div>${a}</div><div>${b}</div><div class="last">${c}</div>`).join('');
+
+  // process_threads: at은 회의 번호, 1–7은 Day 1, 8–11은 Day 2의 2-1부터 2-4
+  const COLORS = { final: '#0000ff', merge: '#ff9e4d', park: '#a8a8a8', drop: '#ff0000' };
+  const threads = [
+    ['검색어 재해석 (LLM)', [10, 11], 'final', 'skewed 카드'],
+    ['결과가 다시 검색어로', [9, 10, 11], 'final', '이어가기, 조각 재검색'],
+    ['페이지 해체, 임베딩', [9, 10, 11], 'final', '분해 화면'],
+    ['네트워크 데이터 시각화', [4, 7, 8, 9, 10, 11], 'final', '카드 스택, 유사도 보기'],
+    ['보간 너머, AI 압축 문제', [1, 3, 4, 9], 'merge', '문제의식의 근거'],
+    ['취향과 개성, 디깅', [5, 7, 8, 9, 10], 'merge', '문제의식'],
+    ['알고리즘 반대편, 뒤쪽 결과', [1, 4, 7, 8, 9, 10], 'merge', '재해석으로 이동'],
+    ['추천 기준 직접 고르기', [4, 7, 9], 'merge', '카드와 조각 선택'],
+    ['공통 질문에서 각자 MVP', [2, 5, 7, 8, 10, 11], 'merge', '각자 PR로 통합'],
+    ['순위 역순, 확률 뒤집기', [8, 9, 10], 'park', '최종 앱에서 뺌'],
+    ['선택 의탁 그래프 (jev)', [4, 7, 8, 9], 'park', '최종 앱에서 뺌'],
+    ['껍데기 페르소나', [4, 7, 8, 9, 10], 'park', '최종 앱에서 뺌'],
+    ['군집화', [9, 10, 11], 'park', '유사도 배치로 대체'],
+    ['불편함, 감정의 여운', [7, 9, 10], 'park', '결론 없음'],
+    ['플랫폼 카피 UI', [7], 'park', '보류'],
+    ['탄막, 떨어지는 선택지', [7], 'park', '보류'],
+    ['물리적 출력', [2, 7], 'park', '보류'],
+    ['카오스 속의 하모니', [2], 'park', '보류'],
+    ['기억하는 AI 검증', [5], 'park', '보류'],
+    ['사건 데이터 위의 궤적', [8], 'park', '보류'],
+    ['챗봇 인터페이스', [8], 'park', '보류'],
+    ['크롬 확장 형태', [9], 'park', '보류'],
+    ['취향 찾기 에이전트', [4], 'drop', '모델 시연처럼 보일 우려'],
+  ];
+  const colNames = ['01', '02', '03', '04', '05', '06', '07', '2-1', '2-2', '2-3', '2-4'];
+  const sepAt = (i) => (i === 0 || i === 7 ? ' sep' : '');
+  document.getElementById('pgrid').innerHTML =
+    `<div class="gr" style="border-top:0"><span class="t"></span>${colNames.map((n, i) => `<span class="gh${sepAt(i)}">${n}</span>`).join('')}<span class="to"></span></div>` +
+    threads.map(([t, at, s, to], r) => `<div class="gr${r === 0 ? ' first' : ''}"><span class="t">${t}</span>${colNames.map((_, i) =>
+      `<span class="${sepAt(i).trim()}">${at.includes(i + 1) ? `<i class="d" style="background:${COLORS[s]}"></i>` : ''}</span>`).join('')}<span class="to">${to}</span></div>`).join('');
+</script>
+
+<script>
+  // search_counts: 카드 조립
+  const card = (color) => `<div class="card"><i style="background:${color}"></i><b></b></div>`;
+  document.getElementById('goodCards').innerHTML = Array(10).fill(card('#0000ff')).join('');
+  const shades = ['#ff9e4d', '#ffaf66', '#ffc080', '#ffd09a'];
+  document.getElementById('terms').innerHTML = shades.map((c, i) =>
+    `<div class="term"><div class="h"><span class="mono">0${i + 1} skewed</span></div><div class="cards">${card(c)}${card(c)}</div></div>`).join('');
+
+  // emphasis_scale: deconstruct-layout.ts 와 같은 상수
+  const OPACITY_EPSILON = .14, MIN_SCALE = .72, SCALE_RANGE = 1;
+  const ts = [0, .25, .5, .75, 1];
+  const opacity = (t) => OPACITY_EPSILON + (1 - OPACITY_EPSILON) * t;
+  const scale = (t) => MIN_SCALE + SCALE_RANGE * t;
+  const BAR = 110;
+  document.getElementById('scaleWords').innerHTML = ts.map((t) =>
+    `<div class="word"><span style="display:inline-block;opacity:${opacity(t)};transform:scale(${scale(t)})">고양이</span></div>`).join('');
+  document.getElementById('scaleBars').innerHTML = ts.map((t) =>
+    `<div class="bar"><i style="height:${BAR * opacity(t)}px"></i></div>`).join('');
+  document.getElementById('scaleVals').innerHTML = ts.map((t) =>
+    `<div class="vals"><b><em class="m">t</em> = ${t}</b>불투명도 ${Number(opacity(t).toFixed(3))}<br>크기 ×${scale(t).toFixed(2)}</div>`).join('');
+  document.getElementById('floor').style.bottom = `${BAR * OPACITY_EPSILON}px`;
+</script>
+</body>
+</html>

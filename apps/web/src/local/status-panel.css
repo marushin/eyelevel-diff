@@ -75,15 +75,4 @@
   color: var(--ls-busy);
 }
 
-@media (prefers-color-scheme: dark) {
-  .local-status {
-    --ls-bg: rgba(28, 28, 30, 0.94);
-    --ls-fg: #f2f2f7;
-    --ls-muted: #a1a1a6;
-    --ls-border: rgba(255, 255, 255, 0.16);
-    --ls-ok: #4ac26b;
-    --ls-warn: #d4a72c;
-    --ls-bad: #ff6b6b;
-    --ls-busy: #6cb6ff;
-  }
-}
+/* 작품 화면은 OS 테마와 상관없이 항상 흰 바탕이므로 패널도 밝은 색으로 고정한다. */

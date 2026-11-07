@@ -5,12 +5,14 @@
  *   pnpm local            개발 서버(소스 수정 시 바로 반영)
  *   pnpm local --preview  빌드한 dist/를 내주는 서버
  *   pnpm local --no-open  Chrome을 열지 않고 서버만 띄움
+ *   pnpm local --no-copy-model  평소 Chrome의 Gemini Nano 모델을 전용 프로필로 복사하지 않음
  *
  * 전용 프로필(.chrome-profile/)은 평소 쓰는 Chrome과 완전히 분리된다. 보안 기능을 끈 프로필이므로
  * 이 창에서는 다른 사이트에 로그인하지 말 것. Gemini Nano 모델도 이 프로필에 따로 받는다.
  */
 import { spawn } from 'node:child_process';
-import { existsSync, mkdirSync } from 'node:fs';
+import { cpSync, existsSync, mkdirSync, readdirSync } from 'node:fs';
+import { homedir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { build, createServer, preview } from 'vite';
@@ -46,6 +48,31 @@ async function startServer() {
   return server;
 }
 
+/** 평소 쓰는 Chrome 프로필 폴더(User Data). 모델 파일만 읽어 온다. */
+function defaultChromeUserData() {
+  if (process.platform === 'win32') return join(process.env.LOCALAPPDATA ?? '', 'Google', 'Chrome', 'User Data');
+  if (process.platform === 'darwin') return join(homedir(), 'Library', 'Application Support', 'Google', 'Chrome');
+  return join(homedir(), '.config', 'google-chrome');
+}
+
+const hasFiles = (dir) => existsSync(dir) && readdirSync(dir, { recursive: true }).some((name) => String(name).endsWith('weights.bin'));
+
+/**
+ * Gemini Nano 모델(약 4GB)은 프로필마다 따로 받는다. 평소 Chrome에 이미 받아 둔 모델이 있으면
+ * 전용 프로필로 복사해 다시 받지 않게 한다. Chrome은 시작할 때 이 폴더를 읽어 모델을 등록한다.
+ */
+function copyNanoModel() {
+  const target = join(profileDir, 'OptGuideOnDeviceModel');
+  const source = join(defaultChromeUserData(), 'OptGuideOnDeviceModel');
+  if (hasFiles(target) || !hasFiles(source)) return;
+  console.log(`  평소 Chrome의 Gemini Nano 모델을 전용 프로필로 복사합니다 (${source})`);
+  try {
+    cpSync(source, target, { recursive: true, force: false, errorOnExist: false });
+  } catch (error) {
+    console.warn(`  모델 복사 실패: ${error.message}. 화면의 '받기' 버튼으로 받으세요.`);
+  }
+}
+
 const server = await startServer();
 const url = `http://127.0.0.1:${port}/`;
 console.log(`\n  로컬 페이지: ${url}`);
@@ -56,6 +83,7 @@ if (!args.has('--no-open')) {
     console.error('  Chrome을 찾지 못했습니다. CHROME_PATH 환경 변수로 경로를 지정하세요.');
   } else {
     mkdirSync(profileDir, { recursive: true });
+    if (!args.has('--no-copy-model')) copyNanoModel();
     console.log(`  전용 Chrome 프로필: ${profileDir}`);
     console.log('  (CORS를 끈 프로필입니다. 이 창에서는 다른 사이트에 로그인하지 마세요.)\n');
     const child = spawn(chrome, [`--user-data-dir=${profileDir}`, ...CHROME_FLAGS, url], { stdio: 'ignore', detached: true });

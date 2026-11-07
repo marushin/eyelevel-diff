@@ -142,7 +142,7 @@ export function mountStatusPanel(host: HTMLElement = document.body): () => void 
     if (disposed) return;
     embed.action.hidden = state.status !== 'idle' && state.status !== 'error';
     embed.action.textContent = state.status === 'error' ? '다시 시도' : '미리 받기';
-    if (state.status === 'idle') setValue(embed.value, '분해할 때 받음(약 600~700MB)', 'warn');
+    if (state.status === 'idle') setValue(embed.value, '분해 때 받음 · 약 700MB', 'warn');
     else if (state.status === 'loading') setValue(embed.value, state.total ? `받는 중 ${formatMb(state.loaded)} / ${formatMb(state.total)}` : '불러오는 중', 'busy');
     else if (state.status === 'ready') setValue(embed.value, `준비됨 (${state.device})`, 'ok');
     else setValue(embed.value, `실패: ${state.message}`, 'bad');

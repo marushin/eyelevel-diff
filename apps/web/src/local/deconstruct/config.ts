@@ -1,0 +1,52 @@
+/**
+ * 원본 apps/deconstruct/src/config.js의 값을 브라우저와 Gemini Nano에 맞게 고쳤다.
+ * Nano는 입력 한도가 작고 한 번에 하나씩 처리하므로 배치 크기와 페이지당 LLM 분량을 크게 줄였다.
+ */
+export const config = {
+  page: {
+    fetchTimeoutMs: 20_000,
+    loadWaitMs: 8_000,
+    scrollBudgetMs: 6_000,
+    maxScrollScreens: 30,
+    settleQuietMs: 400,
+    settleMaxMs: 2_500,
+    maxBytes: 20 * 1024 * 1024,
+    viewport: { width: 1440, height: 900 },
+  },
+  extract: {
+    maxContents: 500,
+    maxVisitedNodes: 150_000,
+    maxTextChars: 20_000,
+  },
+  segment: {
+    minChars: 60,
+    minPieceChars: 8,
+    maxSentenceChars: 100,
+    maxBatchChars: 1_200,
+    maxLlmCharsPerPage: 6_000,
+    llmConcurrency: 1,
+    batchTimeoutMs: 40_000,
+  },
+  refine: {
+    maxPhrases: 8,
+    timeoutMs: 20_000,
+  },
+  vision: {
+    language: 'Korean',
+    maxPerPage: 6,
+    maxEdge: 512,
+    minEdge: 64,
+    maxImageBytes: 15 * 1024 * 1024,
+    fetchTimeoutMs: 8_000,
+    timeoutMs: 30_000,
+    unknownArea: 90_000,
+  },
+  embed: {
+    modelId: 'Xenova/bge-m3',
+    // WebGPU에서 q8은 정수 행렬곱이 CPU로 떨어져 500조각에 2분 넘게 걸렸다. f16 셰이더가 있으면 q4f16(약 700MB)을,
+    // 없으면 원본 서버와 같은 WASM q8(약 570MB)을 쓴다.
+    dtype: { webgpu: 'q4f16', wasm: 'q8' },
+    pooling: 'cls',
+    batchSize: 16,
+  },
+} as const;

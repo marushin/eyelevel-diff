@@ -314,11 +314,6 @@ a {
 .preview-bar[data-loading="true"] .preview-address { opacity: .55; }
 .preview-frame { position: relative; flex: 1; min-height: 0; overflow: auto; background: #fff; }
 .preview-frame iframe { display: block; width: 100%; height: 100%; border: 0; background: #fff; }
-.remote-browser-viewport { position: relative; width: 100%; height: 100%; overflow: hidden; background: #fff; }
-.remote-browser-canvas { display: block; width: 100%; height: 100%; outline: none; touch-action: none; }
-.remote-browser-ime { position: absolute; left: 0; top: 0; width: 1px; height: 1px; padding: 0; border: 0; opacity: 0; pointer-events: none; resize: none; overflow: hidden; }
-.remote-browser-status { position: absolute; inset: 0; background: #fff; }
-.remote-browser-status[hidden] { display: none; }
 .preview-loading { height: 100%; display: flex; align-items: center; justify-content: center; font-size: 15px; color: #333; padding: 24px; }
 .preview-fallback { height: 100%; display: flex; flex-direction: column; justify-content: space-between; padding: clamp(20px, 4vw, 44px); background: #fff; color: #000; user-select: text; -webkit-user-select: text; }
 .preview-fallback-header { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px 16px; padding-bottom: 14px; border-bottom: 1px solid #000; font-size: 13px; }

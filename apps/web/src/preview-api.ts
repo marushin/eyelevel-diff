@@ -37,27 +37,6 @@ export function buildPreviewEndpointUrl(apiEndpoint: string): URL | null {
   return base;
 }
 
-export function buildPreviewWsUrl(
-  apiEndpoint: string,
-  targetUrl: string,
-  width: number,
-  height: number,
-  dpr: number,
-): string | null {
-  const previewHttp = buildPreviewEndpointUrl(apiEndpoint);
-  if (!previewHttp) return null;
-  const wsUrl = new URL(previewHttp.href);
-  wsUrl.protocol = wsUrl.protocol === 'https:' ? 'wss:' : 'ws:';
-  wsUrl.pathname = wsUrl.pathname.replace(/\/preview$/, '/preview-ws');
-  wsUrl.search = new URLSearchParams({
-    url: targetUrl,
-    w: String(Math.max(320, Math.min(1920, Math.round(width)))),
-    h: String(Math.max(240, Math.min(1200, Math.round(height)))),
-    dpr: String(Math.max(1, Math.min(2, Number(dpr.toFixed(2))))),
-  }).toString();
-  return wsUrl.href;
-}
-
 export async function inspectPreviewTarget(
   apiEndpoint: string,
   targetUrl: string,

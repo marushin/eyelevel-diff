@@ -1,7 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   buildPreviewEndpointUrl,
-  buildPreviewWsUrl,
   clearPreviewInspectionCache,
   inspectPreviewTarget,
 } from '../preview-api.ts';
@@ -17,12 +16,6 @@ describe('preview endpoint resolution and target inspection', () => {
     expect(buildPreviewEndpointUrl('http://127.0.0.1:3000/search')?.href).toBe('http://127.0.0.1:3000/preview');
     expect(buildPreviewEndpointUrl('https://api.example.com/v1/search')?.href).toBe(
       'https://api.example.com/v1/preview',
-    );
-    expect(buildPreviewWsUrl('/search', 'https://blog.naver.com/1', 1200, 700, 2)).toBe(
-      'ws://localhost/preview-ws?url=https%3A%2F%2Fblog.naver.com%2F1&w=1200&h=700&dpr=2',
-    );
-    expect(buildPreviewWsUrl('https://demo.ngrok-free.app/search', 'https://brunch.co.kr/@a/1', 900, 600, 1.5)).toBe(
-      'wss://demo.ngrok-free.app/preview-ws?url=https%3A%2F%2Fbrunch.co.kr%2F%40a%2F1&w=900&h=600&dpr=1.5',
     );
   });
 

@@ -7,12 +7,12 @@ import { fetchDeconstruct, fetchPhrases, type DeconstructResponse } from './deco
 import { createDeconstructView, type DeconstructView } from './deconstruct-view.ts';
 import { createHistoryRailController } from './history-rail.ts';
 
-import { buildPreviewWsUrl, inspectPreviewTarget, type PreviewMetadata } from './preview-api.ts';
-import { mountRemoteBrowser, type RemoteBrowserController } from './remote-browser-client.ts';
+import { inspectPreviewTarget, type PreviewMetadata } from './preview-api.ts';
+import { PROGRESS_EVENT } from './local/events.ts';
 
-// Every request costs money and takes 8 to 21 seconds, and the server keeps no result cache.
+// Deconstruction runs on this device (Gemini Nano + local embeddings) and can take minutes on long pages.
 const DECONSTRUCT_CACHE_SIZE = 8;
-const DECONSTRUCT_DEADLINE_MS = 165_000;
+const DECONSTRUCT_DEADLINE_MS = 600_000;
 export interface FrontendView {
   begin(fixture: SiteFixture): void;
   update(snapshot: CrawlSnapshot): void;
@@ -89,7 +89,6 @@ export function createFrontend(
   const frameHost = preview.querySelector<HTMLElement>('.preview-frame')!;
 
   let previewAbort: AbortController | null = null;
-  let activeRemoteBrowser: RemoteBrowserController | null = null;
 
   function showOverlay(loading: boolean, label = '검색중입니다', cancellable = false) {
     // The deconstruct page makes the overlay inert too, and its cancel button must work the next time.
@@ -187,8 +186,6 @@ export function createFrontend(
   function closePreview() {
     previewAbort?.abort();
     previewAbort = null;
-    activeRemoteBrowser?.dispose();
-    activeRemoteBrowser = null;
     const frame = frameHost.querySelector('iframe');
     if (frame) {
       frame.src = 'about:blank';
@@ -298,17 +295,8 @@ export function createFrontend(
 
   scope.add(closePreview);
 
-  scope.trackListener(navBackBtn, 'click', () => {
-    activeRemoteBrowser?.goBack();
-  });
-  scope.trackListener(navForwardBtn, 'click', () => {
-    activeRemoteBrowser?.goForward();
-  });
+  // A cross-origin iframe exposes no history to this page, so back and forward stay disabled.
   scope.trackListener(navReloadBtn, 'click', () => {
-    if (activeRemoteBrowser) {
-      activeRemoteBrowser.reload();
-      return;
-    }
     const frame = frameHost.querySelector('iframe');
     if (frame?.src) {
       const currentSrc = frame.src;
@@ -387,44 +375,8 @@ export function createFrontend(
     previewAbort = controller;
     previewBar.dataset.loading = 'true';
     navReloadBtn.disabled = false;
-
-    let initialUrlSynced = false;
-    activeRemoteBrowser = mountRemoteBrowser(
-      frameHost,
-      (width, height, dpr) => buildPreviewWsUrl(apiEndpoint, page.href, width, height, dpr),
-      {
-        onState(state) {
-          if (controller.signal.aborted || previewAbort !== controller) return;
-          navBackBtn.disabled = !state.canGoBack;
-          navForwardBtn.disabled = !state.canGoForward;
-          previewBar.dataset.loading = String(state.loading);
-          if (state.url) {
-            if (isGoogleRedirectHost(state.url)) {
-              previewAddress.textContent = '원문 주소 연결 중…';
-              previewAddress.title = '';
-            } else {
-              previewAddress.textContent = state.url;
-              previewAddress.title = state.url;
-              if (!initialUrlSynced) {
-                initialUrlSynced = true;
-                syncCardFaceUrl(id, page, state.url);
-              }
-            }
-          }
-          if (state.title && state.canGoBack) {
-            detail.querySelector('p')!.textContent = state.title;
-          } else if (!state.canGoBack) {
-            detail.querySelector('p')!.textContent = titleText;
-          }
-        },
-        onUnavailable() {
-          if (controller.signal.aborted || previewAbort !== controller) return;
-          activeRemoteBrowser?.dispose();
-          activeRemoteBrowser = null;
-          mountHttpFallbackPreview(id, page, titleText, controller);
-        },
-      },
-    );
+    // The local backend inspects frame headers and picks a live iframe, a static copy, or a summary.
+    mountHttpFallbackPreview(id, page, titleText, controller);
   }
 
   const space = createCardSpace(stage, scope, openPagePreview);
@@ -497,6 +449,12 @@ export function createFrontend(
     if (page) void startDecompose(page);
   });
   scope.trackListener(loadingOverlay.querySelector('.loading-cancel')!, 'click', () => { flow?.controller.abort(); });
+  // On-device stages report what they are doing, so a long wait shows where it is.
+  scope.trackListener(window, PROGRESS_EVENT, (event) => {
+    const message = (event as CustomEvent<string>).detail;
+    if (loadingOverlay.hidden || typeof message !== 'string' || !message) return;
+    loadingOverlay.querySelector('.loading-label')!.textContent = message;
+  });
   scope.trackRaf((_time, _wrapped, dt) => {
     if (!loadingOverlay.hidden) {
       loadingElapsed += dt;

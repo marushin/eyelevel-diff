@@ -91,14 +91,18 @@ const IMAGE_SCHEMA = {
 
 export interface ImageDescriber { readonly cacheKey: string; readonly label?: string; describe(image: Blob, signal?: AbortSignal): Promise<string> }
 
-/** 원본은 여러 장을 한 번에 보냈지만, 가장 작은 모델(Nano)에 맞춰 한 장씩 보낸다. */
+/**
+ * 원본은 여러 장을 한 번에 보냈지만, 가장 작은 모델(Nano)에 맞춰 한 장씩 보낸다.
+ * Nano는 한국어 출력을 지원하지 않으므로 영어로 받고, describe.ts가 영→한 번역기로 옮긴다.
+ */
 export function createLlmImageDescriber({ timeoutMs, language }: { timeoutMs: number; language: string }): ImageDescriber {
+  const outputLanguage = () => (llm.needsTranslation ? 'English' : language);
   return {
     get cacheKey() { return `${llm.cacheTag}:image:${language}:v${PROMPT_VERSION}`; },
     get label() { return llm.label; },
     async describe(image, signal) {
       const { description } = await llm.promptJson<{ description: string }>(
-        IMAGE_SYSTEM, { text: `Describe this image in ${language}.`, image }, IMAGE_SCHEMA, { signal, timeoutMs, modality: 'image' },
+        IMAGE_SYSTEM, { text: `Describe this image in ${outputLanguage()}.`, image }, IMAGE_SCHEMA, { signal, timeoutMs, modality: 'image' },
       );
       return typeof description === 'string' ? description.trim() : '';
     },

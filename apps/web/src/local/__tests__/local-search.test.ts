@@ -34,9 +34,18 @@ describe('브라우저 안 백엔드를 거친 카드 스택', () => {
       searched.push(query);
       return new Response(bingPage(query, Number(url.searchParams.get('first') ?? 1)), { headers: { 'content-type': 'text/html; charset=utf-8' } });
     }));
-    const prompt = vi.spyOn(nano, 'promptJson').mockImplementation(async (_system, input) => {
-      expect(JSON.parse(String(input))).toMatchObject({ query: '고구마', count: 4 });
-      return { queries: ['군밤', '전투식량', '봉수대', '종자 저장고'] };
+    // Nano + 한국어 검색: 한→영으로 물어보고 영어로 받은 검색어를 영→한으로 옮긴다.
+    const KO: Record<string, string> = { 'roasted chestnut': '군밤', 'combat ration': '전투식량', 'beacon tower': '봉수대', 'seed vault': '종자 저장고' };
+    vi.stubGlobal('Translator', {
+      availability: vi.fn(async () => 'available'),
+      create: vi.fn(async ({ targetLanguage }: { targetLanguage: string }) => ({
+        translate: async (text: string) => (targetLanguage === 'en' ? (text === '고구마' ? 'sweet potato' : 'direction') : KO[text] ?? text),
+      })),
+    });
+    const prompt = vi.spyOn(nano, 'promptJson').mockImplementation(async (system, input) => {
+      expect(JSON.parse(String(input))).toMatchObject({ query: 'sweet potato', count: 4 });
+      expect(system).toContain('Write every query in English');
+      return { queries: Object.keys(KO) };
     });
     vi.spyOn(nano, 'status').mockResolvedValue('ready');
 

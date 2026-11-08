@@ -4,6 +4,7 @@
  * 선택한 LLM(llm.ts)이 준비되어 있지 않으면 분할은 규칙으로, 이미지는 alt·주변 글자로 대신한다.
  */
 import { llm } from '../llm.ts';
+import { translatorStatus } from '../translate.ts';
 import { errors } from '../errors.ts';
 import { config } from './config.ts';
 import { describeImagesFactory, segmenterFactory } from './stages.ts';
@@ -29,7 +30,9 @@ export async function deconstruct(rawUrl: string, { query = '', signal, onProgre
   try {
     const started = performance.now();
     const textReady = (await llm.status('text')) === 'ready';
-    const imageReady = textReady && (await llm.status('image')) === 'ready';
+    // 이미지 설명은 재검색어(label)로도 쓰여 한국어여야 한다. Nano는 영어로 답하므로 영→한 번역기가 있을 때만 맡긴다.
+    const imageReady = textReady && (await llm.status('image')) === 'ready'
+      && (!llm.needsTranslation || (await translatorStatus()) === 'ready');
     const profile = textReady ? llm.profile : null;
     // 임베딩 모델은 추출과 동시에 불러 둔다(첫 실행에서만 오래 걸린다).
     const modelLoading = target === embedder ? embedder.load().catch(() => {}) : Promise.resolve();

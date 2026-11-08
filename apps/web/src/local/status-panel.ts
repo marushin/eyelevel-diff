@@ -57,7 +57,7 @@ export function mountStatusPanel(host: HTMLElement = document.body): () => void 
   const llmSlot = document.createElement('div');
   const text = row('Gemini Nano');
   const image = row('Nano 이미지');
-  const translate = row('번역 영→한');
+  const translate = row('번역 한↔영');
   const embed = row('임베딩 모델');
   panel.append(summary, cors.root, llmSlot, text.root, image.root, translate.root, embed.root, activity);
   host.append(panel);
@@ -121,12 +121,15 @@ export function mountStatusPanel(host: HTMLElement = document.body): () => void 
   void showNano('text', text);
   void showNano('image', image);
 
-  // Nano는 한국어 출력이 공식 지원되지 않아 영어 결과를 옮길 때 쓴다. 없어도 동작한다.
+  // Nano는 한국어 입출력을 지원하지 않아, 한국어 검색은 번역(한→영→Nano→영→한)을 거친다.
+  // 영→한 번역기가 없으면 한국어 검색에서 Nano 대신 대체 검색어와 alt 문구를 쓴다.
+  translate.root.title = 'Gemini Nano로 한국어 검색어와 이미지 설명을 만들 때 필요합니다. 없으면 한국어 대체 검색어와 페이지의 alt 문구를 씁니다.';
   const showTranslator = async () => {
     const status = await translatorStatus();
     if (disposed) return;
     const [label, level] = NANO_LABEL[status];
-    setValue(translate.value, status === 'unavailable' || status === 'unsupported' ? '사용 불가 · 영어 그대로 사용' : label, level === 'bad' ? 'warn' : level);
+    const text = status === 'ready' ? '준비됨' : status === 'unavailable' || status === 'unsupported' ? '사용 불가 · 한국어는 대체 검색어' : `${label} · 한국어 검색에 필요`;
+    setValue(translate.value, text, level === 'bad' ? 'warn' : level);
     levels.set('translate', level === 'bad' ? 'warn' : level);
     translate.action.hidden = status !== 'downloadable';
     translate.action.textContent = '받기';

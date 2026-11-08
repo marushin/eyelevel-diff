@@ -1,13 +1,13 @@
 /**
  * 원본 apps/deconstruct/src/describe/describeImages.js와 fetchImage.js의 브라우저 판.
  * 이미지 노드에 meta.description을 채운다. alt나 캡션이 뜻을 가지면 그대로 쓰고, 없는 이미지 중
- * 큰 것부터 페이지당 정해진 개수만 Gemini Nano로 설명한다. sharp 대신 createImageBitmap과
+ * 큰 것부터 페이지당 정해진 개수만 선택한 LLM(기본 Gemini Nano)으로 설명한다. sharp 대신 createImageBitmap과
  * OffscreenCanvas로 줄이고 단색 이미지를 걸러 낸다. 실패해도 요청을 실패시키지 않는다.
  */
 import { readBoundedBytes, withTimeout } from '../remote-fetch.ts';
 import { toKorean } from '../translate.ts';
 import type { PageNode } from './extract.ts';
-import type { ImageDescriber } from './nano-finders.ts';
+import type { ImageDescriber } from './llm-finders.ts';
 
 const VECTOR_FILE = /\.svgz?($|\?)/i;
 const BLANK_STDEV = 3;
@@ -123,7 +123,7 @@ export function createImageDescriber({ describer, limits }: { describer: ImageDe
     for (const node of selected) {
       signal?.throwIfAborted();
       index += 1;
-      onProgress?.(`Gemini Nano가 이미지를 보는 중 (${index}/${selected.length})`);
+      onProgress?.(`${describer!.label ?? 'LLM'} · 이미지를 보는 중 (${index}/${selected.length})`);
       try {
         const image = await prepareImage(node.content, limits, signal);
         if (image === BLANK_IMAGE) {

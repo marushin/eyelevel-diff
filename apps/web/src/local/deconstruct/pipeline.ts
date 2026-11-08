@@ -1,15 +1,15 @@
 /**
  * 원본 apps/deconstruct/src/pipeline.js + app.js의 브라우저 판.
  * URL 하나를 추출 → 의미 분할 → 이미지 설명 → 임베딩 → 가중치 순서로 처리해 DeconstructResponse를 만든다.
- * Gemini Nano가 준비되어 있지 않으면 분할은 규칙으로, 이미지는 alt·주변 글자로 대신한다.
+ * 선택한 LLM(llm.ts)이 준비되어 있지 않으면 분할은 규칙으로, 이미지는 alt·주변 글자로 대신한다.
  */
-import { nano } from '../nano.ts';
+import { llm } from '../llm.ts';
 import { errors } from '../errors.ts';
 import { config } from './config.ts';
 import { describeImagesFactory, segmenterFactory } from './stages.ts';
 import { embedNodes, embedQuery, embedder, type Embedder } from './embed.ts';
 import { extractPage, type PageNode } from './extract.ts';
-import { createNanoPhraseFinder } from './nano-finders.ts';
+import { createLlmPhraseFinder } from './llm-finders.ts';
 import { createPhraseRefiner, phraseSimilarities, type PhraseResult } from './phrases.ts';
 import { computeQuerySimilarities, computeWeights, summarizeWeights } from './weights.js';
 
@@ -28,8 +28,9 @@ export async function deconstruct(rawUrl: string, { query = '', signal, onProgre
   active = true;
   try {
     const started = performance.now();
-    const textReady = (await nano.status('text')) === 'ready';
-    const imageReady = textReady && (await nano.status('image')) === 'ready';
+    const textReady = (await llm.status('text')) === 'ready';
+    const imageReady = textReady && (await llm.status('image')) === 'ready';
+    const profile = textReady ? llm.profile : null;
     // 임베딩 모델은 추출과 동시에 불러 둔다(첫 실행에서만 오래 걸린다).
     const modelLoading = target === embedder ? embedder.load().catch(() => {}) : Promise.resolve();
 
@@ -43,7 +44,7 @@ export async function deconstruct(rawUrl: string, { query = '', signal, onProgre
 
     const extracted = await extractPage(rawUrl, { signal, onProgress });
     lap('extract');
-    const segmented = await segmenterFactory(textReady)(extracted.nodes, { signal, onProgress });
+    const segmented = await segmenterFactory(profile)(extracted.nodes, { signal, onProgress });
     lap('segment');
     const described = await describeImagesFactory(imageReady)(segmented.nodes, { signal, onProgress });
     lap('vision');
@@ -66,7 +67,7 @@ export async function deconstruct(rawUrl: string, { query = '', signal, onProgre
       ms: Math.round(performance.now() - started),
       timings,
       device: embedder.state.status === 'ready' ? embedder.state.device : embedder.state.status,
-      nano: { text: textReady, image: imageReady },
+      llm: { provider: llm.cacheTag, profile, text: textReady, image: imageReady },
       segment: segmented.stats,
       vision: described.stats,
       embedding,
@@ -79,11 +80,11 @@ export async function deconstruct(rawUrl: string, { query = '', signal, onProgre
   }
 }
 
-const llmRefine = createPhraseRefiner({ finder: createNanoPhraseFinder({ timeoutMs: config.refine.timeoutMs }), limit: config.refine.maxPhrases });
+const llmRefine = createPhraseRefiner({ finder: createLlmPhraseFinder({ timeoutMs: config.refine.timeoutMs }), limit: config.refine.maxPhrases });
 const ruleRefine = createPhraseRefiner({ limit: config.refine.maxPhrases });
 
 export async function refinePhrases(text: string, query: string, signal?: AbortSignal, target: Embedder = embedder): Promise<PhraseResult & { querySimilarities?: number[] }> {
-  const refine = (await nano.status('text')) === 'ready' ? llmRefine : ruleRefine;
+  const refine = (await llm.status('text')) === 'ready' ? llmRefine : ruleRefine;
   const result = await refine(text, signal);
   const querySimilarities = await phraseSimilarities(result.phrases, query, target);
   return querySimilarities ? { ...result, querySimilarities } : result;

@@ -1,6 +1,6 @@
 /**
  * 원본 apps/deconstruct/src/segment/segmentNodes.js의 브라우저 판.
- * 긴 텍스트만 의미 단위로 나눈다. LLM(Gemini Nano)은 경계의 토큰 번호만 고르고, 실제 자르기는
+ * 긴 텍스트만 의미 단위로 나눈다. LLM(llm.ts에서 고른 모델)은 경계의 토큰 번호만 고르고, 실제 자르기는
  * rules.js의 applyBreaks가 하므로 원문에 없는 글자가 생기지 않는다. LLM이 없거나 실패하면 규칙 분할로 이어 간다.
  */
 import { normalizeNodes } from './normalize.js';
@@ -11,7 +11,9 @@ const KEEP_WHOLE_KINDS = new Set(['link', 'button']);
 const CACHE_SIZE = 2000;
 
 export interface BoundaryFinder {
-  cacheKey: string;
+  readonly cacheKey: string;
+  /** 진행 문구에 쓸 모델 이름 */
+  readonly label?: string;
   find(items: { id: number; tokens: string[] }[], signal?: AbortSignal): Promise<{ breaks: Map<number, unknown> }>;
 }
 
@@ -75,7 +77,7 @@ export function createSegmenter({ finder, limits }: { finder: BoundaryFinder | n
       for (let batch = queue.shift(); batch; batch = queue.shift()) {
         if (signal?.aborted) return;
         stats.llmCalls! += 1;
-        onProgress?.(`Gemini Nano가 문장을 나누는 중 (${stats.llmCalls}/${total})`);
+        onProgress?.(`${finder!.label ?? 'LLM'} · 문장을 나누는 중 (${stats.llmCalls}/${total})`);
         try {
           const { breaks } = await finder!.find(batch.map((item) => ({ id: item.id, tokens: item.tokens.map((token) => token.text) })), signal);
           for (const item of batch) {

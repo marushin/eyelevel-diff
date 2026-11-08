@@ -70,6 +70,62 @@
   cursor: pointer;
 }
 
+.local-status button:disabled { opacity: 0.5; cursor: default; }
+.local-status button { white-space: nowrap; flex-shrink: 0; }
+
+.local-llm-field {
+  display: grid;
+  grid-template-columns: 84px 1fr;
+  gap: 8px;
+  align-items: center;
+  margin-top: 4px;
+}
+
+.local-status-row[hidden], .local-llm-field[hidden], .local-llm-check[hidden], .local-llm-form[hidden] { display: none; }
+
+.local-llm select,
+.local-llm input[type='text'],
+.local-llm input[type='password'],
+.local-llm input[type='url'] {
+  min-width: 0;
+  width: 100%;
+  box-sizing: border-box;
+  font: inherit;
+  padding: 2px 6px;
+  border: 1px solid var(--ls-border);
+  border-radius: 6px;
+  background: #fff;
+  color: inherit;
+}
+
+.local-llm-form {
+  margin: 2px 0 6px;
+  padding: 2px 0 6px 10px;
+  border-left: 2px solid var(--ls-border);
+}
+
+.local-llm-inline {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  min-width: 0;
+  margin-top: 4px;
+}
+
+.local-llm-field .local-llm-inline { margin-top: 0; }
+
+.local-llm-check {
+  display: block;
+  margin-top: 4px;
+  color: var(--ls-muted);
+  cursor: pointer;
+}
+
+.local-llm-note {
+  margin: 4px 0 0;
+  color: var(--ls-muted);
+}
+
 .local-status-activity {
   margin: 6px 0 0;
   color: var(--ls-busy);

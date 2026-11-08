@@ -1,20 +1,28 @@
 /**
- * Nano가 있을 때와 없을 때의 분할기·이미지 설명기. 같은 객체를 계속 쓰므로 캐시가 요청 사이에 유지된다.
+ * LLM이 있을 때와 없을 때의 분할기·이미지 설명기. 같은 객체를 계속 쓰므로 캐시가 요청 사이에 유지된다.
+ * LLM 분할기는 모델 크기(llm.profile)에 따라 한 페이지에서 맡기는 분량과 동시 호출 수가 다르다.
  */
+import type { LlmProfile } from '../llm.ts';
 import { config } from './config.ts';
 import { createImageDescriber } from './describe.ts';
-import { createNanoBoundaryFinder, createNanoImageDescriber } from './nano-finders.ts';
+import { createLlmBoundaryFinder, createLlmImageDescriber } from './llm-finders.ts';
 import { createSegmenter } from './segment.ts';
 
-const segmentLimits = { ...config.segment, maxContents: config.extract.maxContents };
-const llmSegmenter = createSegmenter({ finder: createNanoBoundaryFinder({ timeoutMs: config.segment.batchTimeoutMs }), limits: segmentLimits });
-const ruleSegmenter = createSegmenter({ finder: null, limits: segmentLimits });
+const finder = createLlmBoundaryFinder({ timeoutMs: config.segment.batchTimeoutMs });
+const limitsFor = (profile: LlmProfile) => ({ ...config.segment, ...config.segmentProfiles[profile], maxContents: config.extract.maxContents });
+const llmSegmenters: Record<LlmProfile, ReturnType<typeof createSegmenter>> = {
+  small: createSegmenter({ finder, limits: limitsFor('small') }),
+  medium: createSegmenter({ finder, limits: limitsFor('medium') }),
+  large: createSegmenter({ finder, limits: limitsFor('large') }),
+};
+const ruleSegmenter = createSegmenter({ finder: null, limits: limitsFor('small') });
 
 const visionDescriber = createImageDescriber({
-  describer: createNanoImageDescriber({ timeoutMs: config.vision.timeoutMs, language: config.vision.language }),
+  describer: createLlmImageDescriber({ timeoutMs: config.vision.timeoutMs, language: config.vision.language }),
   limits: config.vision,
 });
 const declaredOnly = createImageDescriber({ describer: null, limits: config.vision });
 
-export const segmenterFactory = (useLlm: boolean) => (useLlm ? llmSegmenter : ruleSegmenter);
+/** profile이 null이면 LLM 없이 규칙으로만 나눈다. */
+export const segmenterFactory = (profile: LlmProfile | null) => (profile ? llmSegmenters[profile] : ruleSegmenter);
 export const describeImagesFactory = (useVision: boolean) => (useVision ? visionDescriber : declaredOnly);

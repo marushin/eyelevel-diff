@@ -1,10 +1,10 @@
 /**
- * 원본 apps/api/llm.js의 검색어 생성을 Gemini Nano로 옮겼다. 지시문과 검증 규칙은 원본을 따른다.
- * 원본은 잘못된 응답에 502를 돌려줬지만, Nano는 훨씬 작은 모델이라 한 번 다시 묻고
+ * 원본 apps/api/llm.js의 검색어 생성을 선택한 LLM(기본 Gemini Nano, llm.ts)으로 옮겼다. 지시문과 검증 규칙은 원본을 따른다.
+ * 원본은 잘못된 응답에 502를 돌려줬지만, 여기서는 한 번 다시 묻고
  * 그래도 안 되면 방향별 대체 검색어로 이어 간다.
  */
 import { AWESOME_DIRECTIONS, FALLBACK_QUERIES } from './directions.ts';
-import { nano } from './nano.ts';
+import { llm } from './llm.ts';
 import { hasHangul, toKorean } from './translate.ts';
 
 export const QUERY_INSTRUCTIONS = [
@@ -69,18 +69,20 @@ export function fallbackQueries(directionIndex: number, count: number): string[]
   return (FALLBACK_QUERIES[directionIndex] ?? FALLBACK_QUERIES[0]!).slice(0, count);
 }
 
-export interface GeneratedQueries { queries: string[]; source: 'gemini-nano' | 'fallback'; direction: string }
+/** source는 검색어를 만든 연결(llm.cacheTag, 예: gemini-nano, claude:claude-opus-5-5) 또는 fallback. */
+export interface GeneratedQueries { queries: string[]; source: string; direction: string }
 
 export async function generateQueries(query: string, count: number, direction: string, signal?: AbortSignal): Promise<GeneratedQueries> {
   const picked = pickDirection(direction);
   const input = JSON.stringify({ query, direction: picked.text, count });
   for (let attempt = 0; attempt < 2; attempt += 1) {
     try {
-      const raw = await nano.promptJson<unknown>(QUERY_INSTRUCTIONS, input, querySchema(count), { signal, timeoutMs: 45_000 });
+      // 검색어 비틀기는 창의적인 일이라 다른 단계보다 생각을 더 쓰게 한다(원격 모델만 해당).
+      const raw = await llm.promptJson<unknown>(QUERY_INSTRUCTIONS, input, querySchema(count), { signal, timeoutMs: 45_000, effort: 'medium' });
       let queries = cleanQueries(raw, query, count);
       // Nano는 공식 출력 언어가 영어라 한국어 검색어에도 영어로 답하곤 한다. 원문이 한국어면 옮겨 준다.
-      if (queries && hasHangul(query)) queries = cleanQueries({ queries: await toKorean(queries, signal) }, query, count) ?? queries;
-      if (queries) return { queries, source: 'gemini-nano', direction: picked.text };
+      if (queries && hasHangul(query) && llm.needsTranslation) queries = cleanQueries({ queries: await toKorean(queries, signal) }, query, count) ?? queries;
+      if (queries) return { queries, source: llm.cacheTag, direction: picked.text };
     } catch (error) {
       if (signal?.aborted) throw error;
       console.warn('[local] 검색어 생성 실패', error);

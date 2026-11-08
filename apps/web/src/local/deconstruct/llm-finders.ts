@@ -1,11 +1,12 @@
 /**
  * 원본의 Claude 호출 객체(claudeBoundaryFinder, claudeImageDescriber, createClaudePhraseFinder)와
- * 같은 모양을 Gemini Nano로 만든다. 프롬프트는 원본을 따르되 작은 모델에 맞게 줄였다.
+ * 같은 모양을 선택한 LLM(llm.ts: Gemini Nano, Claude, OpenAI, 로컬)으로 만든다. 프롬프트는 원본을 따르되
+ * 가장 작은 모델(Nano)에서도 통하도록 줄였다.
  *
  * 페이지 글자와 이미지는 신뢰할 수 없는 입력이다. 경계 찾기는 번호만, 구절은 원문에 있는 부분 문자열만
  * 통과시키므로 인젝션이 성공해도 잘못된 위치에서 끊기는 것 이상의 영향은 없다.
  */
-import { nano } from '../nano.ts';
+import { llm } from '../llm.ts';
 import type { BoundaryFinder } from './segment.ts';
 
 const PROMPT_VERSION = 1;
@@ -39,11 +40,12 @@ export function renderBoundaryItems(items: { id: number; tokens: string[] }[]): 
   return items.map(({ id, tokens }) => `<text id="${id}">${tokens.map((token, index) => `${index}:${token}`).join(' ')}</text>`).join('\n');
 }
 
-export function createNanoBoundaryFinder({ timeoutMs }: { timeoutMs: number }): BoundaryFinder {
+export function createLlmBoundaryFinder({ timeoutMs }: { timeoutMs: number }): BoundaryFinder {
   return {
-    cacheKey: `gemini-nano:boundary:v${PROMPT_VERSION}`,
+    get cacheKey() { return `${llm.cacheTag}:boundary:v${PROMPT_VERSION}`; },
+    get label() { return llm.label; },
     async find(items, signal) {
-      const { results } = await nano.promptJson<{ results: { id: number; breaks: number[] }[] }>(
+      const { results } = await llm.promptJson<{ results: { id: number; breaks: number[] }[] }>(
         BOUNDARY_SYSTEM, renderBoundaryItems(items), BOUNDARY_SCHEMA, { signal, timeoutMs },
       );
       return { breaks: new Map((Array.isArray(results) ? results : []).map((result) => [result.id, result.breaks])) };
@@ -64,13 +66,13 @@ const PHRASE_SCHEMA = {
   additionalProperties: false,
 };
 
-export interface PhraseFinder { cacheKey: string; find(text: string, signal?: AbortSignal): Promise<{ phrases: unknown[] }> }
+export interface PhraseFinder { readonly cacheKey: string; find(text: string, signal?: AbortSignal): Promise<{ phrases: unknown[] }> }
 
-export function createNanoPhraseFinder({ timeoutMs }: { timeoutMs: number }): PhraseFinder {
+export function createLlmPhraseFinder({ timeoutMs }: { timeoutMs: number }): PhraseFinder {
   return {
-    cacheKey: `gemini-nano:phrases:v${PROMPT_VERSION}`,
+    get cacheKey() { return `${llm.cacheTag}:phrases:v${PROMPT_VERSION}`; },
     async find(text, signal) {
-      const { phrases } = await nano.promptJson<{ phrases: unknown[] }>(PHRASE_SYSTEM, `<fragment>${text}</fragment>`, PHRASE_SCHEMA, { signal, timeoutMs });
+      const { phrases } = await llm.promptJson<{ phrases: unknown[] }>(PHRASE_SYSTEM, `<fragment>${text}</fragment>`, PHRASE_SCHEMA, { signal, timeoutMs });
       return { phrases: Array.isArray(phrases) ? phrases : [] };
     },
   };
@@ -87,20 +89,17 @@ const IMAGE_SCHEMA = {
   additionalProperties: false,
 };
 
-export interface ImageDescriber { cacheKey: string; describe(image: Blob, signal?: AbortSignal): Promise<string> }
+export interface ImageDescriber { readonly cacheKey: string; readonly label?: string; describe(image: Blob, signal?: AbortSignal): Promise<string> }
 
-/** 원본은 여러 장을 한 번에 보냈지만 Nano에는 한 장씩 보낸다. */
-export function createNanoImageDescriber({ timeoutMs, language }: { timeoutMs: number; language: string }): ImageDescriber {
+/** 원본은 여러 장을 한 번에 보냈지만, 가장 작은 모델(Nano)에 맞춰 한 장씩 보낸다. */
+export function createLlmImageDescriber({ timeoutMs, language }: { timeoutMs: number; language: string }): ImageDescriber {
   return {
-    cacheKey: `gemini-nano:image:${language}:v${PROMPT_VERSION}`,
+    get cacheKey() { return `${llm.cacheTag}:image:${language}:v${PROMPT_VERSION}`; },
+    get label() { return llm.label; },
     async describe(image, signal) {
-      const { description } = await nano.promptJson<{ description: string }>(IMAGE_SYSTEM, [{
-        role: 'user',
-        content: [
-          { type: 'text', value: `Describe this image in ${language}.` },
-          { type: 'image', value: image },
-        ],
-      }], IMAGE_SCHEMA, { signal, timeoutMs, modality: 'image' });
+      const { description } = await llm.promptJson<{ description: string }>(
+        IMAGE_SYSTEM, { text: `Describe this image in ${language}.`, image }, IMAGE_SCHEMA, { signal, timeoutMs, modality: 'image' },
+      );
       return typeof description === 'string' ? description.trim() : '';
     },
   };

@@ -1,9 +1,11 @@
 /**
- * 로컬 실행 진단 패널. 서버 대신 브라우저가 해야 하는 세 가지가 준비됐는지 보여 준다.
- * 1) 다른 출처 문서 읽기(CORS 꺼짐)  2) Gemini Nano(텍스트·이미지)  3) 임베딩 모델
+ * 로컬 실행 진단 패널. 서버 대신 브라우저가 해야 하는 일이 준비됐는지 보여 준다.
+ * 1) 다른 출처 문서 읽기(CORS 꺼짐)  2) LLM 연결(기본 Gemini Nano, 또는 Claude·OpenAI·로컬 LLM)  3) 임베딩 모델
  * 모델 다운로드는 사용자 클릭이 필요하므로 버튼으로 시작한다.
  */
 import './status-panel.css';
+import { llm } from './llm.ts';
+import { mountLlmSettings } from './llm-settings-panel.ts';
 import { nano, type NanoStatus } from './nano.ts';
 import { isCrossOriginReadable } from './remote-fetch.ts';
 import { activateTranslator, translatorStatus } from './translate.ts';
@@ -52,23 +54,32 @@ export function mountStatusPanel(host: HTMLElement = document.body): () => void 
   activity.hidden = true;
 
   const cors = row('사이트 읽기');
+  const llmSlot = document.createElement('div');
   const text = row('Gemini Nano');
   const image = row('Nano 이미지');
   const translate = row('번역 영→한');
   const embed = row('임베딩 모델');
-  panel.append(summary, cors.root, text.root, image.root, translate.root, embed.root, activity);
+  panel.append(summary, cors.root, llmSlot, text.root, image.root, translate.root, embed.root, activity);
   host.append(panel);
 
   let disposed = false;
   const levels = new Map<string, Level>();
+  const NANO_KEYS = new Set(['text', 'image', 'translate']);
   const refreshSummary = () => {
-    const values = [...levels.values()];
+    // Nano 줄은 Nano를 쓸 때만 보이고 요약 색에도 반영한다. 다른 연결이면 그 연결의 설정 상태를 본다.
+    const usingNano = llm.provider === 'nano';
+    for (const target of [text, image, translate]) target.root.hidden = !usingNano;
+    if (usingNano) levels.delete('llm');
+    else levels.set('llm', llm.missing() ? 'warn' : 'ok');
+    const values = [...levels].filter(([key]) => usingNano || !NANO_KEYS.has(key)).map(([, level]) => level);
     panel.dataset.level = values.includes('bad') ? 'bad' : values.includes('warn') ? 'warn' : values.includes('busy') ? 'busy' : 'ok';
     if (values.includes('bad') && !panel.dataset.opened) {
       panel.open = true;
       panel.dataset.opened = 'true';
     }
   };
+
+  const unmountLlm = mountLlmSettings(llmSlot, () => { if (!disposed) refreshSummary(); });
 
   void isCrossOriginReadable().then((ok) => {
     if (disposed) return;
@@ -163,6 +174,7 @@ export function mountStatusPanel(host: HTMLElement = document.body): () => void 
 
   return () => {
     disposed = true;
+    unmountLlm();
     unsubscribe();
     clearTimeout(clearTimer);
     window.removeEventListener(PROGRESS_EVENT, onProgress);

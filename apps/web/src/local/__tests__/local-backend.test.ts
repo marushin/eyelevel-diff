@@ -15,7 +15,7 @@ import { createSegmenter, type BoundaryFinder } from '../deconstruct/segment.ts'
 import { isBlankPixels, isMeaningfulText } from '../deconstruct/describe.ts';
 import { embeddingInput } from '../deconstruct/embed.ts';
 import { createPhraseRefiner, keepSourcePhrases, rulePhrases } from '../deconstruct/phrases.ts';
-import { renderBoundaryItems } from '../deconstruct/nano-finders.ts';
+import { renderBoundaryItems } from '../deconstruct/llm-finders.ts';
 import { toPublicContents } from '../deconstruct/pipeline.ts';
 import { computeWeights } from '../deconstruct/weights.js';
 

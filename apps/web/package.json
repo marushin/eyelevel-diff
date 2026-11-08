@@ -10,6 +10,7 @@
   "dependencies": {
     "@akl/graph-contract": "workspace:*",
     "@akl/lab-kit": "workspace:*",
+    "@anthropic-ai/sdk": "1.6.0",
     "@chenglou/pretext": "catalog:",
     "@huggingface/transformers": "4.3.2",
     "three": "catalog:",

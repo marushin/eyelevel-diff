@@ -4,7 +4,7 @@
  */
 import { toWeight } from './weights.js';
 import type { Embedder } from './embed.ts';
-import type { PhraseFinder } from './nano-finders.ts';
+import type { PhraseFinder } from './llm-finders.ts';
 
 const CACHE_SIZE = 500;
 const compact = (text: string) => text.replace(/\s+/g, ' ').trim();

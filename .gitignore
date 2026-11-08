@@ -12,3 +12,5 @@ coverage/
 
 .chrome-profile/
 
+release/
+.claude/

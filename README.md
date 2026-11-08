@@ -10,6 +10,8 @@
 
 요구사항: Node.js 22.9 이상, pnpm(`npx pnpm@11.25.0`도 됨), Google Chrome.
 
+**Windows에서는 `start.bat`을 더블클릭**하면 됩니다. Node.js 버전을 확인하고, 처음이면 패키지를 설치한 뒤(pnpm이 없으면 `npx`로) 아래 `pnpm local`과 같은 일을 합니다. 인자도 넘길 수 있습니다(`start.bat --preview`).
+
 ```bash
 pnpm install
 pnpm local          # Vite 정적 서버 + CORS를 끈 전용 Chrome 프로필로 페이지 열기

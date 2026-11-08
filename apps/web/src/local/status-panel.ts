@@ -1,6 +1,6 @@
 /**
  * 로컬 실행 진단 패널. 서버 대신 브라우저가 해야 하는 일이 준비됐는지 보여 준다.
- * 1) 다른 출처 문서 읽기(CORS 꺼짐)  2) LLM 연결(기본 Gemini Nano, 또는 Claude·OpenAI·로컬 LLM)  3) 임베딩 모델
+ * 1) 다른 출처 문서 읽기(CORS 꺼짐)  2) LLM 연결(기본 Gemini Nano, 또는 Claude·OpenAI API)  3) 임베딩 모델
  * 모델 다운로드는 사용자 클릭이 필요하므로 버튼으로 시작한다.
  */
 import './status-panel.css';

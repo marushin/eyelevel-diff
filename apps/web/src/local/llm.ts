@@ -4,7 +4,6 @@
  *   nano    Chrome 내장 Gemini Nano (기본, 무료, 기기 안에서만)
  *   claude  Anthropic API (공식 SDK, 브라우저에서 바로 호출)
  *   openai  OpenAI API (Chat Completions)
- *   local   OpenAI 호환 주소의 로컬 서버 (Ollama, LM Studio 등)
  *
  * 호출자는 모두 promptJson(시스템, 입력, JSON 스키마)만 쓴다. 응답이 깨지거나 연결이 실패하면
  * 호출자가 규칙 분할·대체 검색어로 이어 가므로, 여기서는 실패를 그대로 던진다.
@@ -16,18 +15,18 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { nano, stripFence, type NanoStatus } from './nano.ts';
 
-export type ProviderId = 'nano' | 'claude' | 'openai' | 'local';
+export type ProviderId = 'nano' | 'claude' | 'openai';
 export type Modality = 'text' | 'image';
 export type LlmStatus = NanoStatus | 'needs-setup';
-/** 분할 단계가 한 페이지에서 LLM에 맡길 분량. 작은 모델일수록 줄인다. */
-export type LlmProfile = 'small' | 'medium' | 'large';
+/** 분할 단계가 한 페이지에서 LLM에 맡길 분량. small은 Nano, large는 API 모델. */
+export type LlmProfile = 'small' | 'large';
 export type Effort = 'low' | 'medium' | 'high';
 
 export interface LlmSettings {
   provider: ProviderId;
   claude: { model: string; apiKey: string };
+  /** baseUrl은 화면에 없다. 테스트에서 가짜 서버를 가리킬 때만 바꾼다. */
   openai: { model: string; apiKey: string; baseUrl: string };
-  local: { model: string; apiKey: string; baseUrl: string; vision: boolean };
   /** API 키를 localStorage에 저장할지. 꺼져 있으면 키는 탭을 닫을 때 사라진다. */
   remember: boolean;
 }
@@ -41,27 +40,24 @@ export const PROVIDER_LABEL: Record<ProviderId, string> = {
   nano: 'Gemini Nano',
   claude: 'Claude',
   openai: 'OpenAI',
-  local: '로컬 LLM',
 };
 
 export const CLAUDE_MODELS = ['claude-opus-5-5', 'claude-sonnet-5-5', 'claude-haiku-5-5'];
 export const DEFAULT_OPENAI_URL = 'https://api.openai.com/v1';
-export const DEFAULT_LOCAL_URL = 'http://localhost:11434/v1';
 
 export function defaultSettings(): LlmSettings {
   return {
     provider: 'nano',
     claude: { model: CLAUDE_MODELS[0]!, apiKey: '' },
     openai: { model: '', apiKey: '', baseUrl: DEFAULT_OPENAI_URL },
-    local: { model: '', apiKey: '', baseUrl: DEFAULT_LOCAL_URL, vision: false },
     remember: false,
   };
 }
 
 const STORAGE_KEY = 'local-llm-settings';
-const PROVIDERS = new Set<ProviderId>(['nano', 'claude', 'openai', 'local']);
+const PROVIDERS = new Set<ProviderId>(['nano', 'claude', 'openai']);
 
-/** 저장된 설정을 읽는다. 형식이 어긋난 값은 기본값으로 둔다. */
+/** 저장된 설정을 읽는다. 형식이 어긋나거나 없어진 연결(예: 예전의 로컬 LLM)은 기본값으로 둔다. */
 export function parseSettings(raw: string | null): LlmSettings {
   const base = defaultSettings();
   if (!raw) return base;
@@ -72,12 +68,6 @@ export function parseSettings(raw: string | null): LlmSettings {
       provider: PROVIDERS.has(data.provider as ProviderId) ? data.provider as ProviderId : base.provider,
       claude: { model: str(data.claude?.model, base.claude.model), apiKey: str(data.claude?.apiKey, '') },
       openai: { model: str(data.openai?.model, ''), apiKey: str(data.openai?.apiKey, ''), baseUrl: str(data.openai?.baseUrl, base.openai.baseUrl) },
-      local: {
-        model: str(data.local?.model, ''),
-        apiKey: str(data.local?.apiKey, ''),
-        baseUrl: str(data.local?.baseUrl, base.local.baseUrl),
-        vision: data.local?.vision === true,
-      },
       remember: data.remember === true,
     };
   } catch {
@@ -92,7 +82,6 @@ export function serializeSettings(settings: LlmSettings): string {
     ...settings,
     claude: { ...settings.claude, apiKey: keep(settings.claude.apiKey) },
     openai: { ...settings.openai, apiKey: keep(settings.openai.apiKey) },
-    local: { ...settings.local, apiKey: keep(settings.local.apiKey) },
   });
 }
 
@@ -115,9 +104,9 @@ export function strictSchema(schema: unknown): unknown {
   return out;
 }
 
-/** 모델이 JSON 앞뒤에 덧붙이는 생각 태그·코드 울타리·설명을 걷어 내고 파싱한다. */
+/** 코드 울타리나 앞뒤 설명이 붙어도 JSON 부분을 읽는다. */
 export function parseJsonText(text: string): unknown {
-  const cleaned = stripFence(text.replace(/<think>[\s\S]*?<\/think>/gi, ''));
+  const cleaned = stripFence(text);
   try {
     return JSON.parse(cleaned);
   } catch (error) {
@@ -151,12 +140,7 @@ export class LlmEngine {
   private current: LlmSettings;
   private readonly listeners = new Set<(settings: LlmSettings) => void>();
   private setupError: string | null = null;
-  /** 로컬 서버가 response_format(json_schema)을 거부하면 지시문으로만 JSON을 요청한다. */
-  private readonly noSchemaFormat = new Set<string>();
-  /** reasoning_effort를 거부하는 로컬 서버 */
-  private readonly noReasoningParam = new Set<string>();
   private claudeClient: { key: string; client: Anthropic } | null = null;
-  private queue: Promise<unknown> = Promise.resolve();
 
   constructor(private readonly options: { storage?: Storage | null; fetch?: FetchLike } = {}) {
     let raw: string | null = null;
@@ -191,7 +175,7 @@ export class LlmEngine {
   }
 
   get profile(): LlmProfile {
-    return this.current.provider === 'nano' ? 'small' : this.current.provider === 'local' ? 'medium' : 'large';
+    return this.current.provider === 'nano' ? 'small' : 'large';
   }
 
   /** API는 한국어로 바로 답하므로 Nano용 번역을 거치지 않는다. */
@@ -199,12 +183,8 @@ export class LlmEngine {
     return this.current.provider === 'nano';
   }
 
-  get lastSetupError(): string | null {
-    return this.setupError;
-  }
-
-  update(patch: Partial<Omit<LlmSettings, 'claude' | 'openai' | 'local'>> & {
-    claude?: Partial<LlmSettings['claude']>; openai?: Partial<LlmSettings['openai']>; local?: Partial<LlmSettings['local']>;
+  update(patch: Partial<Omit<LlmSettings, 'claude' | 'openai'>> & {
+    claude?: Partial<LlmSettings['claude']>; openai?: Partial<LlmSettings['openai']>;
   }): void {
     const next = this.settings;
     if (patch.provider) next.provider = patch.provider;
@@ -213,7 +193,6 @@ export class LlmEngine {
     const defined = <T extends object>(value: T | undefined) => Object.fromEntries(Object.entries(value ?? {}).filter(([, v]) => v !== undefined)) as Partial<T>;
     Object.assign(next.claude, defined(patch.claude));
     Object.assign(next.openai, defined(patch.openai));
-    Object.assign(next.local, defined(patch.local));
     this.current = next;
     this.setupError = null;
     this.claudeClient = null;
@@ -228,15 +207,8 @@ export class LlmEngine {
 
   /** 지금 연결로 이 종류의 입력을 처리할 수 있는지. API 연결은 설정만 보고, 실제 확인은 test()가 한다. */
   async status(modality: Modality = 'text', fresh = false): Promise<LlmStatus> {
-    const { provider } = this.current;
-    if (provider === 'nano') return nano.status(modality, fresh);
-    if (this.setupError) return 'needs-setup';
-    const settings = this.current[provider];
-    if (!settings.model.trim()) return 'needs-setup';
-    if (provider !== 'local' && !settings.apiKey.trim()) return 'needs-setup';
-    if (provider !== 'claude' && !(settings as { baseUrl: string }).baseUrl.trim()) return 'needs-setup';
-    if (modality === 'image' && provider === 'local' && !this.current.local.vision) return 'unavailable';
-    return 'ready';
+    if (this.current.provider === 'nano') return nano.status(modality, fresh);
+    return this.missing() ? 'needs-setup' : 'ready';
   }
 
   /** 설정이 빠졌을 때 화면에 보여 줄 이유. */
@@ -245,14 +217,13 @@ export class LlmEngine {
     if (provider === 'nano') return null;
     if (this.setupError) return this.setupError;
     const settings = this.current[provider];
-    if (provider !== 'local' && !settings.apiKey.trim()) return 'API 키 필요';
+    if (!settings.apiKey.trim()) return 'API 키 필요';
     if (!settings.model.trim()) return '모델 이름 필요';
-    if (provider !== 'claude' && !(settings as { baseUrl: string }).baseUrl.trim()) return '주소 필요';
     return null;
   }
 
   /** JSON 스키마로 제한한 응답을 파싱해 돌려준다. */
-  promptJson<T>(system: string, input: LlmInput, schema: object, { signal, modality = 'text', timeoutMs = 60_000, effort = 'low' }: PromptOptions = {}): Promise<T> {
+  async promptJson<T>(system: string, input: LlmInput, schema: object, { signal, modality = 'text', timeoutMs = 60_000, effort = 'low' }: PromptOptions = {}): Promise<T> {
     const { provider } = this.current;
     if (provider === 'nano') {
       const nanoInput = typeof input === 'string'
@@ -260,21 +231,15 @@ export class LlmEngine {
         : [{ role: 'user' as const, content: [{ type: 'text' as const, value: input.text }, { type: 'image' as const, value: input.image }] }];
       return nano.promptJson<T>(system, nanoInput, schema, { signal, modality, timeoutMs });
     }
+    signal?.throwIfAborted();
+    const missing = this.missing();
+    if (missing) throw new LlmSetupError(missing);
     // 원격 모델은 생각하는 시간이 있어 Nano 기준 제한 시간보다 넉넉히 준다.
     const limit = Math.max(timeoutMs * 3, 60_000);
-    const task = async () => {
-      signal?.throwIfAborted();
-      if ((await this.status(modality)) !== 'ready') throw new LlmSetupError(this.missing() ?? `${this.label} 준비 안 됨`);
-      const text = provider === 'claude'
-        ? await this.callClaude(system, input, schema, { signal, timeoutMs: limit, effort })
-        : await this.callOpenAiCompatible(provider, system, input, schema, { signal, timeoutMs: limit });
-      return parseJsonText(text) as T;
-    };
-    // 로컬 서버는 보통 한 번에 하나씩 처리하므로 줄을 세운다. 원격 API는 동시에 보낸다.
-    if (provider !== 'local') return task();
-    const run = this.queue.then(task, task);
-    this.queue = run.catch(() => {});
-    return run;
+    const text = provider === 'claude'
+      ? await this.callClaude(system, input, schema, { signal, timeoutMs: limit, effort })
+      : await this.callOpenAi(system, input, schema, { signal, timeoutMs: limit });
+    return parseJsonText(text) as T;
   }
 
   private claude(): Anthropic {
@@ -324,57 +289,33 @@ export class LlmEngine {
     }
   }
 
-  private async callOpenAiCompatible(provider: 'openai' | 'local', system: string, input: LlmInput, schema: object,
+  private async callOpenAi(system: string, input: LlmInput, schema: object,
     { signal, timeoutMs }: { signal?: AbortSignal; timeoutMs: number }): Promise<string> {
-    const settings = this.current[provider];
-    const base = settings.baseUrl.trim().replace(/\/+$/, '');
-    const strict = strictSchema(schema);
+    const settings = this.current.openai;
+    const base = settings.baseUrl.trim().replace(/\/+$/, '') || DEFAULT_OPENAI_URL;
     const userContent = typeof input === 'string'
       ? input
       : [
           { type: 'text', text: input.text },
           { type: 'image_url', image_url: { url: `data:${imageType(input.image)};base64,${await blobToBase64(input.image)}` } },
         ];
-    // 로컬 모델(Gemma, Qwen 등)은 기본으로 길게 '생각'한 뒤 답해서, 짧은 분류 작업에도 수천 토큰을 쓰다
-    // 문맥 한도에 걸려 잘린다(gemma-4-12b: 생각 6,894토큰 → 잘림). reasoning_effort: 'none'으로 끈다.
-    // OpenAI 본 API는 모델마다 받는 값이 달라 보내지 않는다.
-    const body = (useFormat: boolean, noThinking: boolean) => JSON.stringify({
-      model: settings.model.trim(),
-      messages: [
-        { role: 'system', content: useFormat ? system : `${system}\n\nRespond with only a JSON object that matches this JSON schema:\n${JSON.stringify(strict)}` },
-        { role: 'user', content: userContent },
-      ],
-      ...(useFormat ? { response_format: { type: 'json_schema', json_schema: { name: 'result', schema: strict, strict: true } } } : {}),
-      ...(noThinking ? { reasoning_effort: 'none' } : {}),
-    });
-    const send = (useFormat: boolean, noThinking: boolean) => this.fetchImpl(`${base}/chat/completions`, {
+    const response = await this.fetchImpl(`${base}/chat/completions`, {
       method: 'POST',
-      headers: { 'content-type': 'application/json', ...(settings.apiKey.trim() ? { authorization: `Bearer ${settings.apiKey.trim()}` } : {}) },
-      body: body(useFormat, noThinking),
+      headers: { 'content-type': 'application/json', authorization: `Bearer ${settings.apiKey.trim()}` },
+      body: JSON.stringify({
+        model: settings.model.trim(),
+        messages: [{ role: 'system', content: system }, { role: 'user', content: userContent }],
+        response_format: { type: 'json_schema', json_schema: { name: 'result', schema: strictSchema(schema), strict: true } },
+      }),
       credentials: 'omit',
       signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(timeoutMs)]) : AbortSignal.timeout(timeoutMs),
     });
-
-    // 로컬 서버가 모르는 옵션을 400/422로 거부하면 하나씩 빼고 다시 보낸다(생각 끄기 → 스키마 형식 순).
-    let useFormat = !this.noSchemaFormat.has(base);
-    let noThinking = provider === 'local' && !this.noReasoningParam.has(base);
-    let response = await send(useFormat, noThinking);
-    while (provider === 'local' && (response.status === 400 || response.status === 422) && (noThinking || useFormat)) {
-      if (noThinking) {
-        noThinking = false;
-        this.noReasoningParam.add(base);
-      } else {
-        useFormat = false;
-        this.noSchemaFormat.add(base);
-      }
-      response = await send(useFormat, noThinking);
-    }
     if (response.status === 401 || response.status === 403) this.failSetup('API 키가 올바르지 않음');
-    if (response.status === 404) this.failSetup(`주소나 모델 '${settings.model}'을 찾을 수 없음`);
-    if (!response.ok) throw new Error(`${PROVIDER_LABEL[provider]} 응답 ${response.status}: ${(await response.text().catch(() => '')).slice(0, 200)}`);
+    if (response.status === 404) this.failSetup(`모델 '${settings.model}'을 찾을 수 없음`);
+    if (!response.ok) throw new Error(`OpenAI 응답 ${response.status}: ${(await response.text().catch(() => '')).slice(0, 200)}`);
     const data = await response.json() as { choices?: { message?: { content?: string | null; refusal?: string | null }; finish_reason?: string }[] };
     const choice = data.choices?.[0];
-    if (choice?.message?.refusal) throw new Error(`${PROVIDER_LABEL[provider]}가 요청을 거절했습니다`);
+    if (choice?.message?.refusal) throw new Error('OpenAI가 요청을 거절했습니다');
     if (choice?.finish_reason === 'length') throw new SyntaxError('응답이 길이 제한에 걸려 잘렸습니다');
     const text = choice?.message?.content;
     if (typeof text !== 'string') throw new SyntaxError('응답에 내용이 없습니다');
@@ -404,19 +345,19 @@ export class LlmEngine {
     }
   }
 
-  /** OpenAI 호환 서버의 모델 목록(/models). 화면의 모델 입력 칸 제안용. */
+  /** 화면의 모델 입력 칸 제안용. Claude는 현재 모델, OpenAI는 계정에서 쓸 수 있는 모델(/models). */
   async listModels(signal?: AbortSignal): Promise<string[]> {
     const { provider } = this.current;
     if (provider === 'nano') return [];
     if (provider === 'claude') return CLAUDE_MODELS;
-    const settings = this.current[provider];
-    const base = settings.baseUrl.trim().replace(/\/+$/, '');
-    if (!base) return [];
+    const settings = this.current.openai;
+    const base = settings.baseUrl.trim().replace(/\/+$/, '') || DEFAULT_OPENAI_URL;
     const response = await this.fetchImpl(`${base}/models`, {
-      headers: settings.apiKey.trim() ? { authorization: `Bearer ${settings.apiKey.trim()}` } : {},
+      headers: { authorization: `Bearer ${settings.apiKey.trim()}` },
       credentials: 'omit',
       signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(10_000)]) : AbortSignal.timeout(10_000),
     });
+    if (response.status === 401 || response.status === 403) throw new Error('API 키가 올바르지 않음');
     if (!response.ok) throw new Error(`모델 목록 응답 ${response.status}`);
     const data = await response.json() as { data?: { id?: unknown }[] };
     return (data.data ?? []).map((item) => item.id).filter((id): id is string => typeof id === 'string').sort();

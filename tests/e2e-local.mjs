@@ -199,9 +199,10 @@ try {
     return 'INVALID_URL, UPSTREAM_STATUS';
   });
 
-  // OpenAI 호환 가짜 서버로 '로컬 LLM' 연결을 화면에서 설정하고, 검색어·구절이 그 서버를 거치는지 본다.
-  // 실제 API 키 없이 연결 선택·요청 모양·응답 처리 전체를 브라우저에서 확인하는 용도다.
-  await step('LLM 연결: 로컬 LLM(가짜 OpenAI 호환 서버)', async () => {
+  // 가짜 OpenAI 서버로 'OpenAI API' 연결을 화면에서 설정하고, 검색어·구절이 그 서버를 거치는지 본다.
+  // 실제 키와 요금 없이 연결 선택·요청 모양·응답 처리 전체를 브라우저에서 확인하는 용도다.
+  // 화면에는 주소 칸이 없으므로, 주소(baseUrl)만 저장된 설정으로 가짜 서버를 가리킨다.
+  await step('LLM 연결: OpenAI API(가짜 서버)', async () => {
     const seen = [];
     const fake = createHttpServer(async (request, response) => {
       response.setHeader('access-control-allow-origin', '*');
@@ -211,13 +212,14 @@ try {
         response.writeHead(status, { 'content-type': 'application/json' });
         response.end(JSON.stringify(value));
       };
-      if (request.url === '/v1/models') return send({ data: [{ id: 'fake-model' }] });
+      if (request.headers.authorization !== 'Bearer sk-fake-e2e') return send({ error: { message: 'bad key' } }, 401);
+      if (request.url === '/v1/models') return send({ data: [{ id: 'fake-model' }, { id: 'other-model' }] });
       let raw = '';
       for await (const chunk of request) raw += chunk;
       const body = JSON.parse(raw || '{}');
       const properties = body.response_format?.json_schema?.schema?.properties ?? {};
       const user = body.messages?.at(-1)?.content;
-      seen.push({ model: body.model, keys: Object.keys(properties), image: Array.isArray(user) });
+      seen.push({ model: body.model, keys: Object.keys(properties) });
       let answer;
       if (properties.queries) {
         const { count } = JSON.parse(user);
@@ -231,33 +233,31 @@ try {
       send({ choices: [{ message: { content: JSON.stringify(answer) }, finish_reason: 'stop' }] });
     });
     await new Promise((resolve) => fake.listen(0, '127.0.0.1', resolve));
-    const base = `http://127.0.0.1:${fake.address().port}/v1`;
+    const baseUrl = `http://127.0.0.1:${fake.address().port}/v1`;
     try {
+      await page.evaluate((url) => {
+        localStorage.setItem('local-llm-settings', JSON.stringify({ provider: 'openai', openai: { baseUrl: url, model: '', apiKey: '' } }));
+      }, baseUrl);
       await page.reload({ waitUntil: 'load' });
       const panel = page.locator('.local-status');
       // 패널은 상태에 따라 스스로 열리기도 하므로, 요약을 클릭해 토글하지 않고 직접 연다.
       await page.waitForSelector('.local-status .local-llm select', { state: 'attached' });
       await page.evaluate(() => { document.querySelector('.local-status').open = true; });
-      await panel.locator('.local-llm select').selectOption('local');
-      const urlInput = panel.locator('.local-llm input[type="url"]');
-      await urlInput.fill(base);
-      await urlInput.press('Tab');
+      assert.equal(await panel.locator('.local-llm select').inputValue(), 'openai');
+      assert.equal(await page.locator('.local-status-row', { hasText: 'Gemini Nano' }).isHidden(), true, 'Nano 줄은 숨어야 합니다');
+
+      await panel.locator('.local-llm input[type="password"]').fill('sk-fake-e2e');
       await panel.locator('.local-llm button', { hasText: '목록' }).click();
-      await page.waitForFunction(() => document.querySelector('.local-llm input[type="text"]')?.value === 'fake-model', null, { timeout: 10_000 })
-        .catch(async (error) => {
-          const state = await page.evaluate(() => ({
-            model: document.querySelector('.local-llm input[type="text"]')?.value,
-            url: document.querySelector('.local-llm input[type="url"]')?.value,
-            result: [...document.querySelectorAll('.local-llm .local-status-value')].map((node) => node.textContent),
-            stored: localStorage.getItem('local-llm-settings'),
-          }));
-          throw new Error(`${error.message} ${JSON.stringify(state)}`);
-        });
+      await page.waitForFunction(() => document.querySelectorAll('.local-llm datalist option').length === 2, null, { timeout: 10_000 });
+      const modelInput = panel.locator('.local-llm input[type="text"]');
+      await modelInput.fill('fake-model');
+      await modelInput.press('Tab');
       await panel.locator('.local-llm button', { hasText: '연결 테스트' }).click();
       await page.waitForFunction(() => /연결됨|실패/.test(document.querySelector('.local-llm-inline .local-status-value:last-child')?.textContent ?? ''), null, { timeout: 20_000 });
       const testText = await page.locator('.local-llm-inline .local-status-value').last().textContent();
       assert.match(testText, /연결됨/, testText);
-      assert.equal(await page.locator('.local-status-row', { hasText: 'Gemini Nano' }).isHidden(), true, 'Nano 줄은 숨어야 합니다');
+      const stored = await page.evaluate(() => localStorage.getItem('local-llm-settings'));
+      assert.ok(!stored.includes('sk-fake-e2e'), '기억하기를 켜지 않으면 키를 저장하지 않아야 합니다');
 
       const search = await getJson(`/search?query=${encodeURIComponent(QUERY)}&goodCount=3&awesomeQueryCount=4&awesomeCount=1`);
       assert.equal(search.status, 200, JSON.stringify(search.body));
@@ -270,52 +270,11 @@ try {
       return `요청 ${seen.length}건(${[...new Set(seen.flatMap((call) => call.keys))].join(', ')}), 검색어 ${Object.keys(search.body.awesome).join('/')}`;
     } finally {
       // 다음 단계와 --profile 실행에 영향이 없도록 기본 연결로 되돌린다.
-      await page.locator('.local-llm select').selectOption('nano').catch(() => {});
       await page.evaluate(() => localStorage.removeItem('local-llm-settings')).catch(() => {});
+      await page.reload({ waitUntil: 'load' }).catch(() => {});
       fake.close();
     }
   });
-
-  // E2E_LLM_URL(예: http://127.0.0.1:1234/v1)과 E2E_LLM_MODEL을 주면 실제 로컬 LLM 서버로 검색·분해·구절을 돌린다.
-  if (process.env.E2E_LLM_URL) {
-    await step('LLM 연결: 실제 로컬 LLM', async () => {
-      await page.reload({ waitUntil: 'load' });
-      await page.evaluate(({ baseUrl, model, vision }) => {
-        localStorage.setItem('local-llm-settings', JSON.stringify({ provider: 'local', local: { baseUrl, model, vision } }));
-      }, { baseUrl: process.env.E2E_LLM_URL, model: process.env.E2E_LLM_MODEL ?? '', vision: process.env.E2E_LLM_VISION === '1' });
-      await page.reload({ waitUntil: 'load' });
-      const logs = [];
-      const collect = (message) => { if (message.text().startsWith('[local]')) logs.push(message.text()); };
-      page.on('console', collect);
-      try {
-        let started = Date.now();
-        const search = await getJson(`/search?query=${encodeURIComponent(QUERY)}&goodCount=3&awesomeQueryCount=4&awesomeCount=1`);
-        assert.equal(search.status, 200, JSON.stringify(search.body));
-        const searchMs = Date.now() - started;
-        const searchLog = logs.find((line) => line.includes('재해석 검색어')) ?? '';
-        assert.match(searchLog, /재해석 검색어\(local:/, `LLM이 검색어를 만들어야 합니다: ${searchLog}`);
-
-        started = Date.now();
-        const result = await getJson(`/deconstruct?url=${encodeURIComponent(PAGE)}&query=${encodeURIComponent(QUERY)}`);
-        assert.equal(result.status, 200, JSON.stringify(result.body));
-        const deconstructMs = Date.now() - started;
-        const report = JSON.parse((logs.find((line) => line.startsWith('[local] deconstruct')) ?? '').replace('[local] deconstruct ', '') || '{}');
-
-        const text = '고구마는 메꽃과의 여러해살이 식물이며, 덩이뿌리를 먹는다.';
-        const phrases = await getJson(`/deconstruct/phrases?text=${encodeURIComponent(text)}`);
-        assert.equal(phrases.status, 200);
-        return [
-          `검색 ${(searchMs / 1000).toFixed(1)}초: ${Object.keys(search.body.awesome).join(' / ')}`,
-          `분해 ${(deconstructMs / 1000).toFixed(1)}초: 조각 ${result.body.contents.length}, LLM 호출 ${report.segment?.llmCalls} (실패 ${report.segment?.llmFailures}), 이미지 ${report.vision?.vision ?? 0}, 단계 ${JSON.stringify(report.timings)}`,
-          `구절(${phrases.body.source}): ${phrases.body.phrases.join(' / ')}`,
-        ].join('\n    ');
-      } finally {
-        page.off('console', collect);
-        await page.evaluate(() => localStorage.removeItem('local-llm-settings')).catch(() => {});
-        await page.reload({ waitUntil: 'load' }).catch(() => {});
-      }
-    });
-  }
 
   await step('화면: 검색 → 카드 → 미리보기 → 분해', async () => {
     await page.reload({ waitUntil: 'load' });

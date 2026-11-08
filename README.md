@@ -49,13 +49,10 @@ Gemini Nano와 번역 모델은 Chrome 정책상 **버튼 클릭으로만** 받�
 |---|---|---|---|
 | Gemini Nano (기본) | 없음 | 없음 | 위 표의 모델 받기 필요 |
 | Claude API | API 키, 모델(기본 `claude-opus-5-5`) | 호출마다 과금 | 공식 SDK로 브라우저에서 바로 호출. 거절 시 서버 쪽 대체 모델(`fallbacks: "default"`) 사용 |
-| OpenAI API | API 키, 모델 | 호출마다 과금 | Chat Completions + JSON 스키마 |
-| 로컬 LLM | 주소(예: Ollama `http://localhost:11434/v1`, LM Studio `http://127.0.0.1:1234/v1`), 모델 | 없음 | OpenAI 호환 API. `목록` 버튼으로 모델을 불러옴. 이미지를 읽는 모델이면 '이미지 설명도 맡기기'를 켬 |
+| OpenAI API | API 키, 모델(키를 넣고 `목록` 버튼으로 고름) | 호출마다 과금 | Chat Completions + JSON 스키마 |
 
-- `연결 테스트`로 아주 짧은 요청 하나를 보내 확인합니다(유료 API는 소액 과금).
-- API를 쓰면 한국어로 바로 답하므로 번역 단계를 건너뛰고, 문장 분할도 원본 서버처럼 페이지당 24,000자까지 맡깁니다(로컬 LLM은 12,000자).
-- 로컬 LLM에는 `reasoning_effort: "none"`을 보내 '생각' 단계를 끕니다. 켜 두면 gemma-4-12b 기준 분할 한 번에 생각만 수천 토큰을 써서 문맥 한도에 걸렸습니다. 서버가 이 옵션이나 JSON 스키마 형식을 거부하면 빼고 다시 보냅니다.
-- 측정(2026-11-08, LM Studio + gemma-4-12b-it, 위키백과 「고구마」): 검색어 1.3초, 분해 37.6초(문장 분할 29초·호출 7번, 이미지 2장 2.3초).
+- `연결 테스트`로 아주 짧은 요청 하나를 보내 확인합니다(소액 과금).
+- API를 쓰면 한국어로 바로 답하므로 번역 단계를 건너뛰고, 문장 분할도 원본 서버처럼 페이지당 24,000자까지 맡깁니다.
 - **API 키는 기본적으로 이 탭에만** 있다가 닫으면 사라집니다. '이 기기에 API 키 기억'을 켜면 저장하지만, 분해할 때 대상 웹페이지 스크립트가 이 앱과 같은 출처에서 돌기 때문에 그 스크립트가 저장된 키를 읽을 수 있습니다. 유료 API 키는 이 작품 전용으로 만들고 콘솔에서 월 사용 한도를 걸어 두세요.
 
 ## 원본 백엔드 → 브라우저 대응
@@ -88,8 +85,8 @@ Gemini Nano와 번역 모델은 Chrome 정책상 **버튼 클릭으로만** 받�
 - **전용 프로필은 CORS(`--disable-web-security`)를 끈 상태입니다.** 서버 없이 다른 사이트를 읽기 위한 설정이므로 이 창에서는 다른 사이트에 로그인하지 마세요. 평소 쓰는 Chrome 프로필과는 완전히 분리되어 있습니다.
 - 분해할 때 대상 페이지의 스크립트가 이 앱과 같은 출처의 숨은 iframe에서 돕니다. sandbox로 최상위 이동·팝업·대화상자는 막지만, 로컬 개인 용도를 전제로 한 구조입니다.
 - 검색 결과는 Bing/DuckDuckGo 결과 페이지를 읽어 얻습니다. 페이지 구조가 바뀌면 파서(`web-search.ts`)를 고쳐야 합니다.
-- Gemini Nano는 원본이 쓰던 모델보다 훨씬 작아 검색어가 "점점 멀어지는" 흐름이 약할 수 있습니다. 더 나은 결과가 필요하면 LLM 연결을 Claude·OpenAI·로컬 LLM으로 바꾸세요.
-- Claude·OpenAI 연결은 실제 키로 호출해 보지 않았습니다. 요청 모양은 가짜 응답으로 검사했고, 로컬 LLM(LM Studio)은 실제로 확인했습니다.
+- Gemini Nano는 원본이 쓰던 모델보다 훨씬 작아 검색어가 "점점 멀어지는" 흐름이 약할 수 있습니다. 더 나은 결과가 필요하면 LLM 연결을 Claude나 OpenAI API로 바꾸세요.
+- Claude·OpenAI 연결은 실제 키로 호출해 보지 않았습니다. 요청 모양은 가짜 응답으로, 실제 서버 접속과 잘못된 키 처리는 가짜 키(401)로 확인했습니다.
 
 ## 구조
 
@@ -97,7 +94,7 @@ Gemini Nano와 번역 모델은 Chrome 정책상 **버튼 클릭으로만** 받�
 apps/web/                  카드 스택과 분해 화면 (원본)
   src/local/               브라우저 안 백엔드
     install.ts             fetch 가로채기: /search, /deconstruct, /deconstruct/phrases, /preview
-    llm.ts                 LLM 연결 고르기: Gemini Nano / Claude(SDK) / OpenAI / 로컬 LLM
+    llm.ts                 LLM 연결 고르기: Gemini Nano / Claude(SDK) / OpenAI
     llm-settings-panel.ts  패널의 LLM 연결 설정 화면
     nano.ts                Gemini Nano(Prompt API) 래퍼: 세션 복제, 직렬 큐, JSON 스키마
     translate.ts           Translator API(영→한)
@@ -117,8 +114,7 @@ pnpm check        # TypeScript
 pnpm test         # 단위·통합 테스트 (vitest)
 pnpm test:e2e     # 실제 Chrome + 네트워크로 /search, /preview, /deconstruct, /phrases, 화면 흐름 확인
                   #   --headed 창 띄우기, --download-nano 모델 받기까지, E2E_ONLY=이름 일부 단계만
-                  #   LLM 연결 화면은 가짜 OpenAI 호환 서버로 확인. 실제 로컬 LLM으로도 돌리려면
-                  #   E2E_LLM_URL=http://127.0.0.1:1234/v1 E2E_LLM_MODEL=모델 (E2E_LLM_VISION=1)
+                  #   LLM 연결 화면은 가짜 OpenAI 서버로 확인(실제 키·요금 없음)
 ```
 
 ## 출처

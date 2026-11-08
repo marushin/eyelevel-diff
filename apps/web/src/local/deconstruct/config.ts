@@ -1,7 +1,7 @@
 /**
  * 원본 apps/deconstruct/src/config.js의 값을 브라우저와 Gemini Nano에 맞게 고쳤다.
  * Nano는 입력 한도가 작고 한 번에 하나씩 처리하므로 배치 크기와 페이지당 LLM 분량을 크게 줄였다.
- * API나 로컬 LLM을 연결하면 segmentProfiles 값으로 덮어쓴다.
+ * Claude·OpenAI API를 연결하면 segmentProfiles 값으로 덮어쓴다.
  */
 export const config = {
   page: {
@@ -29,13 +29,11 @@ export const config = {
     batchTimeoutMs: 40_000,
   },
   /**
-   * 연결한 모델 크기별 분할 분량. small은 위 segment 값(Gemini Nano) 그대로다.
+   * 연결한 모델별 분할 분량. small은 위 segment 값(Gemini Nano) 그대로다.
    * large(Claude·OpenAI)는 원본 서버처럼 페이지당 24,000자까지 맡기고 동시에 보낸다.
-   * medium(로컬 LLM)은 한 번에 하나씩 처리하는 경우가 많아 동시 호출 없이 분량만 늘린다.
    */
   segmentProfiles: {
     small: {},
-    medium: { maxBatchChars: 2_000, maxLlmCharsPerPage: 12_000, llmConcurrency: 1 },
     large: { maxBatchChars: 4_000, maxLlmCharsPerPage: 24_000, llmConcurrency: 4 },
   },
   refine: {

@@ -1,6 +1,6 @@
 /**
  * 원본의 Claude 호출 객체(claudeBoundaryFinder, claudeImageDescriber, createClaudePhraseFinder)와
- * 같은 모양을 선택한 LLM(llm.ts: Gemini Nano, Claude, OpenAI, 로컬)으로 만든다. 프롬프트는 원본을 따르되
+ * 같은 모양을 선택한 LLM(llm.ts: Gemini Nano, Claude, OpenAI)으로 만든다. 프롬프트는 원본을 따르되
  * 가장 작은 모델(Nano)에서도 통하도록 줄였다.
  *
  * 페이지 글자와 이미지는 신뢰할 수 없는 입력이다. 경계 찾기는 번호만, 구절은 원문에 있는 부분 문자열만

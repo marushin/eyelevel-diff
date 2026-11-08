@@ -81,12 +81,11 @@
   margin-top: 4px;
 }
 
-.local-status-row[hidden], .local-llm-field[hidden], .local-llm-check[hidden], .local-llm-form[hidden] { display: none; }
+.local-status-row[hidden], .local-llm-form[hidden] { display: none; }
 
 .local-llm select,
 .local-llm input[type='text'],
-.local-llm input[type='password'],
-.local-llm input[type='url'] {
+.local-llm input[type='password'] {
   min-width: 0;
   width: 100%;
   box-sizing: border-box;

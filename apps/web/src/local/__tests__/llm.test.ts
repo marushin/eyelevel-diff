@@ -47,7 +47,8 @@ describe('설정', () => {
     expect(parseSettings(null).provider).toBe('nano');
     expect(parseSettings('{oops').provider).toBe('nano');
     expect(parseSettings(JSON.stringify({ provider: 'evil' })).provider).toBe('nano');
-    expect(parseSettings(JSON.stringify({ provider: 'local', local: { model: 'gemma3', vision: true } })).local).toMatchObject({ model: 'gemma3', vision: true });
+    expect(parseSettings(JSON.stringify({ provider: 'local' })).provider).toBe('nano'); // 없어진 로컬 LLM 연결
+    expect(parseSettings(JSON.stringify({ provider: 'openai', openai: { model: 'm' } })).openai).toMatchObject({ model: 'm', baseUrl: 'https://api.openai.com/v1' });
   });
 
   it('기억하기를 켜지 않으면 API 키를 저장하지 않는다', () => {
@@ -73,24 +74,23 @@ describe('설정', () => {
     expect(engine.settings.claude).toEqual({ model: 'claude-opus-5-5', apiKey: 'k2' });
   });
 
-  it('필요한 값이 빠지면 needs-setup, 로컬 이미지는 켜야 쓴다', async () => {
+  it('키와 모델이 있어야 ready, API 연결은 번역 없이 큰 분량을 맡는다', async () => {
     const engine = new LlmEngine();
+    expect(engine.profile).toBe('small');
+    expect(engine.needsTranslation).toBe(true);
     engine.update({ provider: 'claude' });
     expect(await engine.status()).toBe('needs-setup');
     expect(engine.missing()).toBe('API 키 필요');
     engine.update({ claude: { apiKey: 'k' } });
     expect(await engine.status()).toBe('ready');
     expect(await engine.status('image')).toBe('ready');
-
-    engine.update({ provider: 'local' });
-    expect(engine.missing()).toBe('모델 이름 필요');
-    engine.update({ local: { model: 'gemma3' } });
-    expect(await engine.status('text')).toBe('ready'); // 로컬은 키가 없어도 된다
-    expect(await engine.status('image')).toBe('unavailable');
-    engine.update({ local: { vision: true } });
-    expect(await engine.status('image')).toBe('ready');
-    expect(engine.profile).toBe('medium');
+    expect(engine.profile).toBe('large');
     expect(engine.needsTranslation).toBe(false);
+
+    engine.update({ provider: 'openai', openai: { apiKey: 'k' } });
+    expect(engine.missing()).toBe('모델 이름 필요');
+    engine.update({ openai: { model: 'm' } });
+    expect(await engine.status()).toBe('ready');
   });
 });
 
@@ -104,14 +104,14 @@ describe('스키마와 응답 정리', () => {
     expect(SCHEMA.properties.list.minItems).toBe(2); // 원본은 건드리지 않는다
   });
 
-  it('생각 태그, 코드 울타리, 앞뒤 설명을 걷어 내고 JSON을 읽는다', () => {
-    expect(parseJsonText('<think>음…</think>\n```json\n{"a":1}\n```')).toEqual({ a: 1 });
+  it('코드 울타리와 앞뒤 설명을 걷어 내고 JSON을 읽는다', () => {
+    expect(parseJsonText('```json\n{"a":1}\n```')).toEqual({ a: 1 });
     expect(parseJsonText('결과입니다: {"a":2} 끝')).toEqual({ a: 2 });
     expect(() => parseJsonText('no json')).toThrow(SyntaxError);
   });
 });
 
-describe('OpenAI·로컬 LLM', () => {
+describe('OpenAI', () => {
   it('Chat Completions에 json_schema 형식과 키를 보내고 응답을 파싱한다', async () => {
     const { fetch, calls } = fakeFetch(() => openAiReply('{"word":"고구마"}'));
     const engine = new LlmEngine({ fetch });
@@ -129,36 +129,15 @@ describe('OpenAI·로컬 LLM', () => {
     });
   });
 
-  it('이미지는 data URL로 보낸다', async () => {
+  it('이미지는 data URL로 보내고, 기본 주소는 api.openai.com이다', async () => {
     const { fetch, calls } = fakeFetch(() => openAiReply('{"description":"고양이"}'));
     const engine = new LlmEngine({ fetch });
-    engine.update({ provider: 'local', local: { model: 'llava', vision: true } });
+    engine.update({ provider: 'openai', openai: { apiKey: 'k', model: 'm' } });
     const image = new Blob([new Uint8Array([1, 2, 3])], { type: 'image/jpeg' });
     await engine.promptJson('sys', { text: 'Describe', image }, SCHEMA, { modality: 'image' });
+    expect(calls[0]!.url).toBe('https://api.openai.com/v1/chat/completions');
     const content = (calls[0]!.body.messages as { content: unknown }[])[1]!.content as { type: string; image_url?: { url: string } }[];
     expect(content[1]!.image_url!.url).toBe('data:image/jpeg;base64,AQID');
-    expect(headerOf(calls[0]!.init, 'authorization')).toBeNull(); // 로컬은 키 없이
-  });
-
-  it('로컬 모델의 생각을 끄고, 서버가 모르는 옵션은 하나씩 빼고 다시 보낸 뒤 기억한다', async () => {
-    const { fetch, calls } = fakeFetch((call) => (call.body.response_format || call.body.reasoning_effort ? json({ error: 'unsupported' }, 400) : openAiReply('{"word":"감자"}')));
-    const engine = new LlmEngine({ fetch });
-    engine.update({ provider: 'local', local: { model: 'tiny' } });
-    expect(await engine.promptJson('sys', 'x', SCHEMA)).toEqual({ word: '감자' });
-    expect(calls.map((call) => [call.body.reasoning_effort ?? null, Boolean(call.body.response_format)])).toEqual([['none', true], [null, true], [null, false]]);
-    expect((calls[2]!.body.messages as { content: string }[])[0]!.content).toContain('JSON schema');
-    await engine.promptJson('sys', 'y', SCHEMA);
-    expect(calls).toHaveLength(4);
-    expect(calls[3]!.body.response_format).toBeUndefined();
-    expect(calls[3]!.body.reasoning_effort).toBeUndefined();
-  });
-
-  it('OpenAI 본 API에는 reasoning_effort를 보내지 않는다', async () => {
-    const { fetch, calls } = fakeFetch(() => openAiReply('{"word":"a"}'));
-    const engine = new LlmEngine({ fetch });
-    engine.update({ provider: 'openai', openai: { apiKey: 'k', model: 'm' } });
-    await engine.promptJson('s', 'x', SCHEMA);
-    expect(calls[0]!.body.reasoning_effort).toBeUndefined();
   });
 
   it('키가 틀리면 설정 오류로 멈추고, 설정을 바꾸면 다시 시도한다', async () => {
@@ -189,9 +168,10 @@ describe('OpenAI·로컬 LLM', () => {
   it('모델 목록을 /models에서 읽는다', async () => {
     const { fetch, calls } = fakeFetch(() => json({ data: [{ id: 'b' }, { id: 'a' }, { id: 3 }] }));
     const engine = new LlmEngine({ fetch });
-    engine.update({ provider: 'local' });
+    engine.update({ provider: 'openai', openai: { apiKey: 'k' } });
     expect(await engine.listModels()).toEqual(['a', 'b']);
-    expect(calls[0]!.url).toBe('http://localhost:11434/v1/models');
+    expect(calls[0]!.url).toBe('https://api.openai.com/v1/models');
+    expect(headerOf(calls[0]!.init, 'authorization')).toBe('Bearer k');
   });
 });
 

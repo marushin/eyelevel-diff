@@ -12,6 +12,10 @@
 
 **Windows에서는 `start.bat`을 더블클릭**하면 됩니다. Node.js 버전을 확인하고, 처음이면 패키지를 설치한 뒤(pnpm이 없으면 `npx`로) 아래 `pnpm local`과 같은 일을 합니다. 인자도 넘길 수 있습니다(`start.bat --preview`).
 
+**macOS에서는 `start.command`를 더블클릭**하면 터미널이 열리고 같은 일을 합니다. 인터넷에서 받은 파일이라 처음에는 "확인되지 않은 개발자" 경고가 뜰 수 있습니다. 그때는 파일을 Control-클릭해 `열기`를 고르거나, 시스템 설정 → 개인정보 보호 및 보안에서 `그래도 열기`를 누르세요. 터미널에서 `bash start.command`로 실행해도 됩니다.
+
+배포용 zip은 `python scripts/pack.py`로 만듭니다(`release/`에 생김). macOS에서 `start.command`의 실행 권한이 유지되도록 Unix 권한을 담아 압축합니다.
+
 ```bash
 pnpm install
 pnpm local          # Vite 정적 서버 + CORS를 끈 전용 Chrome 프로필로 페이지 열기

@@ -64,9 +64,10 @@ const hasFiles = (dir) => existsSync(dir) && readdirSync(dir, { recursive: true 
 function copyNanoModel() {
   const target = join(profileDir, 'OptGuideOnDeviceModel');
   const source = join(defaultChromeUserData(), 'OptGuideOnDeviceModel');
-  if (hasFiles(target) || !hasFiles(source)) return;
-  console.log(`  평소 Chrome의 Gemini Nano 모델을 전용 프로필로 복사합니다 (${source})`);
+  // macOS는 평소 Chrome 프로필 폴더 읽기를 EPERM으로 막을 수 있다. 복사는 선택 기능이므로 실패해도 계속 실행한다.
   try {
+    if (hasFiles(target) || !hasFiles(source)) return;
+    console.log(`  평소 Chrome의 Gemini Nano 모델을 전용 프로필로 복사합니다 (${source})`);
     cpSync(source, target, { recursive: true, force: false, errorOnExist: false });
   } catch (error) {
     console.warn(`  모델 복사 실패: ${error.message}. 화면의 '받기' 버튼으로 받으세요.`);

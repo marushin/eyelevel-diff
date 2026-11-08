@@ -1,3 +1,31 @@
+# macOS 검증 — 2026-11-08
+
+환경: macOS 27.2, Apple M3 Max(14코어), RAM 36GB, Chrome 157.0.8103.39, Node.js 22.23.4, pnpm 11.25.0.
+
+**발견하고 고친 문제:** `scripts/local.mjs`가 평소 Chrome의 `OptGuideOnDeviceModel` 폴더를 검사하다 `EPERM`으로 종료되어, Chrome이 뜨지 않고 서버도 꺼졌다. 검사를 `try` 안으로 옮겨 복사만 건너뛰도록 고쳤다. 복사되지 않으므로 Nano는 새로 받아야 한다.
+
+**동작 확인:**
+
+- `pnpm check` 통과, `pnpm test` 166개 통과.
+- 실행기: 서버 유지, 전용 Chrome 프로필 생성, 페이지 열림.
+- Gemini Nano 약 4GB와 임베딩 모델 약 700MB를 전용 프로필에 받음. Prompt API `available`, 임베딩 WebGPU(`q4f16`, Metal).
+- `pnpm test:e2e --profile` 2회 모두 8/8 통과 (헤드리스, 받아 둔 프로필의 복제본):
+  - 다른 출처 읽기와 Prompt API 진단.
+  - `/search`: 일반 결과 10개, 재해석 검색어 4개(`gemini-nano+translate`), 11~15초.
+  - `/preview inspect`: iframe.
+  - `/deconstruct`: 조각 499개, 간선 124,251개, 2회차 약 34초. 1회차는 모델 로드 21초가 더해져 약 54초.
+  - `/deconstruct/phrases`: Nano가 원문 구절을 반환, 2~3초.
+  - 오류 코드 `INVALID_URL`, `UPSTREAM_STATUS`.
+  - OpenAI 연결 화면과 요청 흐름 (가짜 서버).
+  - 화면에서 검색 → 카드 → 미리보기 → 분해.
+- 1회차 위키백과 분해에서 Nano 분할 실패 2건이 있었고, 해당 글은 규칙 분할로 대체됨. 2회차는 0건.
+
+**미검증:**
+
+- 유효한 키로 Claude·OpenAI API를 실제 호출하는 경로와 그 응답 시간.
+- `start.command` 더블클릭 실행 (`node scripts/local.mjs`로 확인).
+- 받기 버튼을 누르지 않았는데 Nano 다운로드가 시작된 사례 1건의 원인. README의 "버튼 클릭으로만 시작" 설명과 다름.
+
 # 통합 검증 — 2026-11-06
 
 - `pnpm install`: 완료. `pnpm-lock.yaml` 생성.
